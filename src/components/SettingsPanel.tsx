@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { UserSettings, CURRENCIES } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight } from "lucide-react";
+import { UserSettings, CURRENCIES, Expense } from "@/types/expense";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, FileSpreadsheet } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -9,16 +9,46 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useState } from "react";
+import { exportToCSV, exportToJSON, exportToExcel } from "@/lib/exportUtils";
+import { toast } from "sonner";
 
 interface SettingsPanelProps {
   settings: UserSettings;
   onUpdateSettings: (updates: Partial<UserSettings>) => void;
   onBack: () => void;
+  expenses: Expense[];
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
+
+  const handleExportCSV = () => {
+    if (expenses.length === 0) {
+      toast.error("No expenses to export");
+      return;
+    }
+    exportToCSV(expenses, settings.currencySymbol);
+    toast.success(`Exported ${expenses.length} expenses as CSV`);
+  };
+
+  const handleExportJSON = () => {
+    if (expenses.length === 0) {
+      toast.error("No expenses to export");
+      return;
+    }
+    exportToJSON(expenses, settings.currencySymbol, settings.currency);
+    toast.success(`Exported ${expenses.length} expenses as JSON`);
+  };
+
+  const handleExportExcel = () => {
+    if (expenses.length === 0) {
+      toast.error("No expenses to export");
+      return;
+    }
+    exportToExcel(expenses, settings.currencySymbol);
+    toast.success(`Exported ${expenses.length} expenses as Excel`);
+  };
 
   const currentCurrency = CURRENCIES.find((c) => c.code === settings.currency);
 
@@ -86,6 +116,71 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack }: SettingsPanelProp
                   <p className="font-medium">Theme</p>
                   <p className="text-sm text-muted-foreground capitalize">
                     {settings.theme}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
+        {/* Data Export */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Data
+          </h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors disabled:opacity-50"
+              onClick={handleExportCSV}
+              disabled={expenses.length === 0}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <Download className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Export as CSV</p>
+                  <p className="text-sm text-muted-foreground">
+                    {expenses.length} expenses
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors disabled:opacity-50"
+              onClick={handleExportJSON}
+              disabled={expenses.length === 0}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <FileJson className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Export as JSON</p>
+                  <p className="text-sm text-muted-foreground">
+                    {expenses.length} expenses
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors disabled:opacity-50"
+              onClick={handleExportExcel}
+              disabled={expenses.length === 0}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-600/10 flex items-center justify-center">
+                  <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Export as Excel</p>
+                  <p className="text-sm text-muted-foreground">
+                    {expenses.length} expenses
                   </p>
                 </div>
               </div>
