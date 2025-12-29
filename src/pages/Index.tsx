@@ -15,7 +15,7 @@ const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>("dashboard");
   
-  const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses } = useExpenses();
+  const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses } = useExpenses();
   const { settings, isLoading, updateSettings, formatCurrency, resetSettings } = useSettings();
 
   const handleClearAllData = () => {
@@ -76,6 +76,7 @@ const Index = () => {
           onBack={() => setCurrentView("dashboard")}
           expenses={expenses}
           onClearAllData={handleClearAllData}
+          onImportExpenses={importExpenses}
         />
       )}
 
