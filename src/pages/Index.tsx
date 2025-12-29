@@ -5,6 +5,7 @@ import Dashboard from "@/components/Dashboard";
 import AddExpense from "@/components/AddExpense";
 import SettingsPanel from "@/components/SettingsPanel";
 import ExpenseList from "@/components/ExpenseList";
+import InstallPrompt from "@/components/InstallPrompt";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
 import { UserSettings } from "@/types/expense";
@@ -90,6 +91,8 @@ const Index = () => {
           onDeleteExpense={deleteExpense}
         />
       )}
+
+      <InstallPrompt />
     </>
   );
 };
