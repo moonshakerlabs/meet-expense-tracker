@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserSettings, CURRENCIES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useState } from "react";
-import { exportToCSV, exportToJSON, exportToCSVFiltered } from "@/lib/exportUtils";
+import { useRef, useState } from "react";
+import { exportToCSV, exportToJSON, exportToCSVFiltered, importFromCSV } from "@/lib/exportUtils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -30,9 +30,10 @@ interface SettingsPanelProps {
   onBack: () => void;
   expenses: Expense[];
   onClearAllData: () => void;
+  onImportExpenses: (expenses: Omit<Expense, 'id' | 'syncStatus'>[]) => number;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -40,6 +41,47 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [clearStep, setClearStep] = useState<"warning" | "confirm">("warning");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      if (!content) {
+        toast.error("Failed to read file");
+        return;
+      }
+
+      const { expenses: parsedExpenses, result } = importFromCSV(content);
+
+      if (!result.success) {
+        toast.error(result.errors[0] || "Failed to import CSV");
+        return;
+      }
+
+      const imported = onImportExpenses(parsedExpenses);
+      
+      if (result.skipped > 0) {
+        toast.success(`Imported ${imported} expenses (${result.skipped} skipped)`);
+      } else {
+        toast.success(`Imported ${imported} expenses`);
+      }
+    };
+
+    reader.onerror = () => {
+      toast.error("Failed to read file");
+    };
+
+    reader.readAsText(file);
+    
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleExportCSV = () => {
     if (expenses.length === 0) {
@@ -190,6 +232,32 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             Data
           </h3>
           <Card className="rounded-2xl divide-y divide-border">
+            {/* Hidden file input for import */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".csv"
+              onChange={handleImportCSV}
+              className="hidden"
+            />
+            
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                  <Upload className="w-5 h-5 text-orange-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Import from CSV</p>
+                  <p className="text-sm text-muted-foreground">
+                    Restore exported data
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors disabled:opacity-50"
               onClick={handleExportCSV}

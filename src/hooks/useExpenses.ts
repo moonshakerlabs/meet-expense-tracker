@@ -73,6 +73,16 @@ export const useExpenses = () => {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const importExpenses = useCallback((newExpenses: Omit<Expense, 'id' | 'syncStatus'>[]) => {
+    const expensesWithIds: Expense[] = newExpenses.map((exp) => ({
+      ...exp,
+      id: generateId(),
+      syncStatus: "pending" as const,
+    }));
+    setExpenses((prev) => [...expensesWithIds, ...prev]);
+    return expensesWithIds.length;
+  }, []);
+
   // Calculate totals
   const getMonthlyTotal = useCallback((date: Date = new Date()) => {
     const month = date.getMonth();
@@ -140,6 +150,7 @@ export const useExpenses = () => {
     updateExpense,
     deleteExpense,
     clearAllExpenses,
+    importExpenses,
     getMonthlyTotal,
     getMonthlyTransactionCount,
     getTodayTotal,
