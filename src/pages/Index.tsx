@@ -4,11 +4,12 @@ import Onboarding from "@/components/Onboarding";
 import Dashboard from "@/components/Dashboard";
 import AddExpense from "@/components/AddExpense";
 import SettingsPanel from "@/components/SettingsPanel";
+import ExpenseList from "@/components/ExpenseList";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
 import { UserSettings } from "@/types/expense";
 
-type View = "dashboard" | "add-expense" | "settings";
+type View = "dashboard" | "add-expense" | "settings" | "expense-list";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -50,7 +51,7 @@ const Index = () => {
           expenses={expenses}
           formatCurrency={formatCurrency}
           onAddExpense={() => setCurrentView("add-expense")}
-          onViewExpenses={() => {/* Will implement expense list later */}}
+          onViewExpenses={() => setCurrentView("expense-list")}
           onOpenSettings={() => setCurrentView("settings")}
         />
       )}
@@ -67,6 +68,14 @@ const Index = () => {
         <SettingsPanel
           settings={settings}
           onUpdateSettings={updateSettings}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
+
+      {currentView === "expense-list" && (
+        <ExpenseList
+          expenses={expenses}
+          formatCurrency={formatCurrency}
           onBack={() => setCurrentView("dashboard")}
         />
       )}
