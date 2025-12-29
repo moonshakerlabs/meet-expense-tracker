@@ -6,7 +6,6 @@ import AddExpense from "@/components/AddExpense";
 import SettingsPanel from "@/components/SettingsPanel";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
-import { Toaster } from "@/components/ui/toaster";
 import { UserSettings } from "@/types/expense";
 
 type View = "dashboard" | "add-expense" | "settings";
@@ -71,8 +70,6 @@ const Index = () => {
           onBack={() => setCurrentView("dashboard")}
         />
       )}
-
-      <Toaster />
     </>
   );
 };
