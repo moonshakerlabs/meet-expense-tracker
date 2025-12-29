@@ -1,26 +1,78 @@
 import { useState } from "react";
 import SplashScreen from "@/components/SplashScreen";
+import Onboarding from "@/components/Onboarding";
+import Dashboard from "@/components/Dashboard";
+import AddExpense from "@/components/AddExpense";
+import SettingsPanel from "@/components/SettingsPanel";
+import { useExpenses } from "@/hooks/useExpenses";
+import { useSettings } from "@/hooks/useSettings";
+import { Toaster } from "@/components/ui/toaster";
+import { UserSettings } from "@/types/expense";
+
+type View = "dashboard" | "add-expense" | "settings";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const [currentView, setCurrentView] = useState<View>("dashboard");
+  
+  const { expenses, addExpense } = useExpenses();
+  const { settings, isLoading, updateSettings, formatCurrency } = useSettings();
 
+  // Show splash screen
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show onboarding if not completed
+  if (!settings.hasCompletedOnboarding) {
+    return (
+      <Onboarding
+        onComplete={(newSettings: Partial<UserSettings>) => {
+          updateSettings(newSettings);
+        }}
+      />
+    );
+  }
+
+  // Main app views
   return (
     <>
-      {showSplash && (
-        <SplashScreen onComplete={() => setShowSplash(false)} />
+      {currentView === "dashboard" && (
+        <Dashboard
+          expenses={expenses}
+          formatCurrency={formatCurrency}
+          onAddExpense={() => setCurrentView("add-expense")}
+          onViewExpenses={() => {/* Will implement expense list later */}}
+          onOpenSettings={() => setCurrentView("settings")}
+        />
       )}
-      <div
-        className={`flex min-h-screen items-center justify-center bg-background transition-opacity duration-300 ${
-          showSplash ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        <div className="text-center">
-          <h1 className="mb-4 text-4xl font-bold">MET Moon</h1>
-          <p className="text-xl text-muted-foreground">
-            Monthly Expense Tracker
-          </p>
-        </div>
-      </div>
+
+      {currentView === "add-expense" && (
+        <AddExpense
+          currencySymbol={settings.currencySymbol}
+          onSave={addExpense}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
+
+      {currentView === "settings" && (
+        <SettingsPanel
+          settings={settings}
+          onUpdateSettings={updateSettings}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
+
+      <Toaster />
     </>
   );
 };
