@@ -70,6 +70,11 @@ export const useSettings = () => {
     setSettings((prev) => ({ ...prev, hasCompletedOnboarding: true }));
   }, []);
 
+  const resetSettings = useCallback(() => {
+    setSettings(defaultSettings);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
   const formatCurrency = useCallback(
     (amount: number) => {
       return `${settings.currencySymbol}${amount.toLocaleString(undefined, {
@@ -85,6 +90,7 @@ export const useSettings = () => {
     isLoading,
     updateSettings,
     completeOnboarding,
+    resetSettings,
     formatCurrency,
   };
 };

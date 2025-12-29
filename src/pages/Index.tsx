@@ -15,8 +15,13 @@ const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>("dashboard");
   
-  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency } = useSettings();
+  const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses } = useExpenses();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings } = useSettings();
+
+  const handleClearAllData = () => {
+    clearAllExpenses();
+    resetSettings();
+  };
 
   // Show splash screen
   if (showSplash) {
@@ -70,6 +75,7 @@ const Index = () => {
           onUpdateSettings={updateSettings}
           onBack={() => setCurrentView("dashboard")}
           expenses={expenses}
+          onClearAllData={handleClearAllData}
         />
       )}
 
