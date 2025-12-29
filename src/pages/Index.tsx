@@ -15,7 +15,7 @@ const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>("dashboard");
   
-  const { expenses, addExpense } = useExpenses();
+  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
   const { settings, isLoading, updateSettings, formatCurrency } = useSettings();
 
   // Show splash screen
@@ -76,7 +76,10 @@ const Index = () => {
         <ExpenseList
           expenses={expenses}
           formatCurrency={formatCurrency}
+          currencySymbol={settings.currencySymbol}
           onBack={() => setCurrentView("dashboard")}
+          onUpdateExpense={updateExpense}
+          onDeleteExpense={deleteExpense}
         />
       )}
     </>
