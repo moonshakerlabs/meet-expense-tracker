@@ -69,6 +69,7 @@ const Index = () => {
           settings={settings}
           onUpdateSettings={updateSettings}
           onBack={() => setCurrentView("dashboard")}
+          expenses={expenses}
         />
       )}
 
