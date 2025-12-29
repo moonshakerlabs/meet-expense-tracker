@@ -16,7 +16,7 @@ const formatDateTime = (date: Date): string => {
 
 export const exportToCSV = (
   expenses: Expense[],
-  currencySymbol: string
+  currency: string
 ): void => {
   if (expenses.length === 0) return;
 
@@ -24,14 +24,57 @@ export const exportToCSV = (
   const rows = expenses.map((exp) => [
     formatDate(exp.date),
     exp.amount.toFixed(2),
-    currencySymbol,
+    currency,
     getCategoryLabel(exp.category),
     `"${(exp.notes || "").replace(/"/g, '""')}"`,
     formatDateTime(exp.createdAt),
   ]);
 
   const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
-  downloadFile(csvContent, `meet-expenses-${formatDate(new Date())}.csv`, "text/csv");
+  downloadFile(csvContent, `meet-expenses-${formatDate(new Date())}.csv`, "text/csv;charset=utf-8");
+};
+
+export const exportToCSVFiltered = (
+  expenses: Expense[],
+  currency: string,
+  startDate?: Date,
+  endDate?: Date
+): void => {
+  let filtered = expenses;
+  
+  if (startDate) {
+    filtered = filtered.filter((exp) => new Date(exp.date) >= startDate);
+  }
+  if (endDate) {
+    const endOfDay = new Date(endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    filtered = filtered.filter((exp) => new Date(exp.date) <= endOfDay);
+  }
+
+  if (filtered.length === 0) return;
+
+  const headers = ["Date", "Amount", "Currency", "Category", "Notes", "Created At"];
+  const rows = filtered.map((exp) => [
+    formatDate(exp.date),
+    exp.amount.toFixed(2),
+    currency,
+    getCategoryLabel(exp.category),
+    `"${(exp.notes || "").replace(/"/g, '""')}"`,
+    formatDateTime(exp.createdAt),
+  ]);
+
+  // Add total row
+  const total = filtered.reduce((sum, exp) => sum + exp.amount, 0);
+  rows.push(["", "", "", "", "", ""]);
+  rows.push(["TOTAL", total.toFixed(2), currency, "", "", ""]);
+
+  const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+  
+  const dateRange = startDate && endDate 
+    ? `${formatDate(startDate)}_to_${formatDate(endDate)}`
+    : formatDate(new Date());
+  
+  downloadFile(csvContent, `meet-expenses-${dateRange}.csv`, "text/csv;charset=utf-8");
 };
 
 export const exportToJSON = (
@@ -58,27 +101,6 @@ export const exportToJSON = (
 
   const jsonContent = JSON.stringify(exportData, null, 2);
   downloadFile(jsonContent, `meet-expenses-${formatDate(new Date())}.json`, "application/json");
-};
-
-export const exportToExcel = (
-  expenses: Expense[],
-  currencySymbol: string
-): void => {
-  if (expenses.length === 0) return;
-
-  // Excel-compatible CSV with BOM for proper UTF-8 encoding
-  const headers = ["Date", "Amount", "Currency", "Category", "Notes", "Created At"];
-  const rows = expenses.map((exp) => [
-    formatDate(exp.date),
-    exp.amount.toFixed(2),
-    currencySymbol,
-    getCategoryLabel(exp.category),
-    `"${(exp.notes || "").replace(/"/g, '""')}"`,
-    formatDateTime(exp.createdAt),
-  ]);
-
-  const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
-  downloadFile(csvContent, `meet-expenses-${formatDate(new Date())}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 };
 
 const downloadFile = (content: string, filename: string, mimeType: string): void => {

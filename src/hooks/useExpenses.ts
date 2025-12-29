@@ -68,6 +68,11 @@ export const useExpenses = () => {
     setExpenses((prev) => prev.filter((expense) => expense.id !== id));
   }, []);
 
+  const clearAllExpenses = useCallback(() => {
+    setExpenses([]);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
   // Calculate totals
   const getMonthlyTotal = useCallback((date: Date = new Date()) => {
     const month = date.getMonth();
@@ -134,6 +139,7 @@ export const useExpenses = () => {
     addExpense,
     updateExpense,
     deleteExpense,
+    clearAllExpenses,
     getMonthlyTotal,
     getMonthlyTransactionCount,
     getTodayTotal,
