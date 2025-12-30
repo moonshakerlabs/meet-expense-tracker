@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { UserSettings } from "@/types/expense";
+import { UserSettings, CustomCategory, Category } from "@/types/expense";
 
 const STORAGE_KEY = "meet_settings";
 
@@ -9,6 +9,21 @@ const defaultSettings: UserSettings = {
   theme: "system",
   hasCompletedOnboarding: false,
   googleConnected: false,
+  customCategories: [],
+  customSubcategories: {
+    food: [],
+    transport: [],
+    shopping: [],
+    bills: [],
+    medical: [],
+    subscriptions: [],
+    education: [],
+    tax: [],
+    liabilities: [],
+    investments: [],
+    misc: [],
+    custom: [],
+  },
 };
 
 export const useSettings = () => {
@@ -20,7 +35,13 @@ export const useSettings = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setSettings({ ...defaultSettings, ...JSON.parse(stored) });
+        const parsed = JSON.parse(stored);
+        setSettings({ 
+          ...defaultSettings, 
+          ...parsed,
+          customCategories: parsed.customCategories || [],
+          customSubcategories: { ...defaultSettings.customSubcategories, ...parsed.customSubcategories },
+        });
       }
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -41,7 +62,9 @@ export const useSettings = () => {
     const applyTheme = () => {
       const root = document.documentElement;
       if (settings.theme === "system") {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)"
+        ).matches;
         root.classList.toggle("dark", prefersDark);
       } else {
         root.classList.toggle("dark", settings.theme === "dark");
@@ -50,7 +73,6 @@ export const useSettings = () => {
 
     applyTheme();
 
-    // Listen for system theme changes
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
       if (settings.theme === "system") {
@@ -85,6 +107,51 @@ export const useSettings = () => {
     [settings.currencySymbol]
   );
 
+  const addCustomCategory = useCallback((category: CustomCategory) => {
+    setSettings((prev) => ({
+      ...prev,
+      customCategories: [...prev.customCategories, category],
+    }));
+  }, []);
+
+  const removeCustomCategory = useCallback((categoryId: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      customCategories: prev.customCategories.filter((c) => c.id !== categoryId),
+    }));
+  }, []);
+
+  const addCustomSubcategory = useCallback(
+    (parentCategory: Category, subcategory: CustomCategory) => {
+      setSettings((prev) => ({
+        ...prev,
+        customSubcategories: {
+          ...prev.customSubcategories,
+          [parentCategory]: [
+            ...(prev.customSubcategories[parentCategory] || []),
+            subcategory,
+          ],
+        },
+      }));
+    },
+    []
+  );
+
+  const removeCustomSubcategory = useCallback(
+    (parentCategory: Category, subcategoryId: string) => {
+      setSettings((prev) => ({
+        ...prev,
+        customSubcategories: {
+          ...prev.customSubcategories,
+          [parentCategory]: prev.customSubcategories[parentCategory].filter(
+            (s) => s.id !== subcategoryId
+          ),
+        },
+      }));
+    },
+    []
+  );
+
   return {
     settings,
     isLoading,
@@ -92,5 +159,9 @@ export const useSettings = () => {
     completeOnboarding,
     resetSettings,
     formatCurrency,
+    addCustomCategory,
+    removeCustomCategory,
+    addCustomSubcategory,
+    removeCustomSubcategory,
   };
 };
