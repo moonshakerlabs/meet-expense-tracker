@@ -91,7 +91,12 @@ const Dashboard = ({
       .sort((a, b) => b.value - a.value);
   }, [monthlyExpenses]);
 
-  const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses]);
+  const recentExpenses = useMemo(() => 
+    [...monthlyExpenses]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3), 
+    [monthlyExpenses]
+  );
 
   const monthName = selectedDate.toLocaleString("default", { month: "long", year: "numeric" });
   const isCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
@@ -194,19 +199,8 @@ const Dashboard = ({
                 <TrendingUp className="w-5 h-5 text-success" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">This Week</p>
-                <p className="font-semibold">
-                  {formatCurrency(
-                    expenses
-                      .filter((e) => {
-                        const d = new Date(e.date);
-                        const weekAgo = new Date();
-                        weekAgo.setDate(weekAgo.getDate() - 7);
-                        return d >= weekAgo;
-                      })
-                      .reduce((s, e) => s + e.amount, 0)
-                  )}
-                </p>
+                <p className="text-xs text-muted-foreground">Categories</p>
+                <p className="font-semibold">{categoryData.length} used</p>
               </div>
             </div>
           </Card>
@@ -219,8 +213,8 @@ const Dashboard = ({
                 <Receipt className="w-5 h-5 text-accent" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">All Expenses</p>
-                <p className="font-semibold">{expenses.length} total</p>
+                <p className="text-xs text-muted-foreground">This Month</p>
+                <p className="font-semibold">{monthlyExpenses.length} expenses</p>
               </div>
             </div>
           </Card>
@@ -344,19 +338,21 @@ const Dashboard = ({
         )}
 
         {/* Empty State */}
-        {expenses.length === 0 && (
+        {monthlyExpenses.length === 0 && (
           <Card className="p-8 rounded-2xl text-center">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Receipt className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="font-semibold mb-2">No expenses yet</h3>
+            <h3 className="font-semibold mb-2">No expenses in {monthName}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Start tracking your spending by adding your first expense.
+              {isCurrentMonth ? 'Start tracking your spending by adding your first expense.' : 'No expenses were recorded for this month.'}
             </p>
-            <Button className="rounded-xl" onClick={onAddExpense}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Expense
-            </Button>
+            {isCurrentMonth && (
+              <Button className="rounded-xl" onClick={onAddExpense}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Expense
+              </Button>
+            )}
           </Card>
         )}
       </div>
