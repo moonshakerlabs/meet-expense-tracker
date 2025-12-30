@@ -34,9 +34,10 @@ interface AddExpenseProps {
   }) => void;
   onBack: () => void;
   customSubcategories?: Record<Category, { id: string; label: string; icon: string }[]>;
+  hiddenCategories?: Category[];
 }
 
-const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]> }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]>, hiddenCategories = [] }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
@@ -106,9 +107,10 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
   };
 
   const availableSubcategories = getAvailableSubcategories();
+  const visibleCategories = CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id));
 
   return (
-    <div className="min-h-screen bg-background safe-top safe-bottom">
+    <div className="min-h-screen bg-background safe-top safe-bottom flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="flex items-center gap-3 px-4 py-4">
@@ -124,8 +126,10 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
         </div>
       </div>
 
-      <div className="p-5 space-y-6">
-        {/* Amount Input */}
+      {/* Scrollable Form Content */}
+      <div className="flex-1 overflow-y-auto pb-24">
+        <div className="p-5 space-y-6">
+          {/* Amount Input */}
         <div>
           <label className="text-sm font-medium text-muted-foreground mb-2 block">
             Amount
@@ -156,9 +160,9 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
           <label className="text-sm font-medium text-muted-foreground mb-3 block">
             Category
           </label>
-          <ScrollArea className="h-[280px] pr-2">
+          <ScrollArea className="h-[240px] pr-2">
             <div className="grid grid-cols-3 gap-3">
-              {CATEGORIES.map((cat) => (
+              {visibleCategories.map((cat) => (
                 <Card
                   key={cat.id}
                   className={cn(
@@ -249,21 +253,24 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
           </div>
         </div>
 
-        {/* Notes */}
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-2 block">
-            Notes (optional)
-          </label>
-          <Textarea
-            placeholder="Add a note..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="rounded-xl resize-none"
-            rows={3}
-          />
+          {/* Notes */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Notes (optional)
+            </label>
+            <Textarea
+              placeholder="Add a note..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="rounded-xl resize-none"
+              rows={3}
+            />
+          </div>
         </div>
+      </div>
 
-        {/* Save Button */}
+      {/* Sticky Save Button at Bottom */}
+      <div className="sticky bottom-0 p-5 bg-background/95 backdrop-blur-lg border-t border-border">
         <Button
           size="lg"
           className="w-full rounded-2xl h-14 text-lg font-semibold"

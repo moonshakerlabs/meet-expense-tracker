@@ -25,7 +25,7 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, hideCategory, showCategory } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
@@ -78,6 +78,7 @@ const Index = () => {
           onSave={addExpense}
           onBack={() => setCurrentView("dashboard")}
           customSubcategories={settings.customSubcategories}
+          hiddenCategories={settings.hiddenCategories}
         />
       )}
 
@@ -149,10 +150,13 @@ const Index = () => {
         <CategoryManager
           customCategories={settings.customCategories}
           customSubcategories={settings.customSubcategories}
+          hiddenCategories={settings.hiddenCategories}
           onAddCategory={addCustomCategory}
           onRemoveCategory={removeCustomCategory}
           onAddSubcategory={addCustomSubcategory}
           onRemoveSubcategory={removeCustomSubcategory}
+          onHideCategory={hideCategory}
+          onShowCategory={showCategory}
           onBack={() => setCurrentView("settings")}
         />
       )}

@@ -15,8 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Tags, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Tags, Trash2, Eye, EyeOff } from "lucide-react";
 import { Category, CATEGORIES, CustomCategory } from "@/types/expense";
+import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
 const EMOJI_OPTIONS = ["📌", "🎯", "⭐", "💎", "🔥", "🌟", "💫", "🎨", "🎭", "🎪", "🎬", "🎵", "🎮", "🎲", "🏋️", "🧘", "🏊", "🚴", "🍕", "🍜", "☕", "🍷"];
@@ -24,20 +25,26 @@ const EMOJI_OPTIONS = ["📌", "🎯", "⭐", "💎", "🔥", "🌟", "💫", "�
 interface CategoryManagerProps {
   customCategories: CustomCategory[];
   customSubcategories: Record<Category, CustomCategory[]>;
+  hiddenCategories: Category[];
   onAddCategory: (category: CustomCategory) => void;
   onRemoveCategory: (id: string) => void;
   onAddSubcategory: (parentCategory: Category, subcategory: CustomCategory) => void;
   onRemoveSubcategory: (parentCategory: Category, id: string) => void;
+  onHideCategory: (categoryId: Category) => void;
+  onShowCategory: (categoryId: Category) => void;
   onBack: () => void;
 }
 
 const CategoryManager = ({
   customCategories,
   customSubcategories,
+  hiddenCategories,
   onAddCategory,
   onRemoveCategory,
   onAddSubcategory,
   onRemoveSubcategory,
+  onHideCategory,
+  onShowCategory,
   onBack,
 }: CategoryManagerProps) => {
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -100,6 +107,43 @@ const CategoryManager = ({
       </div>
 
       <div className="p-5 space-y-6">
+        {/* Built-in Categories */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">
+            Built-in Categories
+          </h3>
+          <div className="space-y-2">
+            {CATEGORIES.filter((cat) => cat.id !== "custom").map((cat) => {
+              const isHidden = hiddenCategories.includes(cat.id);
+              return (
+                <Card key={cat.id} className={cn("p-3 rounded-xl", isHidden && "opacity-50")}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{cat.icon}</span>
+                      <span className="font-medium">{cat.label}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => isHidden ? onShowCategory(cat.id) : onHideCategory(cat.id)}
+                    >
+                      {isHidden ? (
+                        <EyeOff className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Hidden categories won't appear when adding expenses
+          </p>
+        </div>
+
         {/* Custom Categories */}
         <div>
           <div className="flex items-center justify-between mb-3">

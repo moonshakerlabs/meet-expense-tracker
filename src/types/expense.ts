@@ -77,6 +77,7 @@ export interface UserSettings {
   monthlyIncome?: number;
   customCategories: CustomCategory[];
   customSubcategories: Record<Category, CustomCategory[]>;
+  hiddenCategories: Category[];
 }
 
 export const CATEGORIES: { id: Category; label: string; icon: string; color: string }[] = [

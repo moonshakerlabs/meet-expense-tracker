@@ -24,6 +24,7 @@ const defaultSettings: UserSettings = {
     misc: [],
     custom: [],
   },
+  hiddenCategories: [],
 };
 
 export const useSettings = () => {
@@ -41,6 +42,7 @@ export const useSettings = () => {
           ...parsed,
           customCategories: parsed.customCategories || [],
           customSubcategories: { ...defaultSettings.customSubcategories, ...parsed.customSubcategories },
+          hiddenCategories: parsed.hiddenCategories || [],
         });
       }
     } catch (error) {
@@ -152,6 +154,20 @@ export const useSettings = () => {
     []
   );
 
+  const hideCategory = useCallback((categoryId: Category) => {
+    setSettings((prev) => ({
+      ...prev,
+      hiddenCategories: [...prev.hiddenCategories, categoryId],
+    }));
+  }, []);
+
+  const showCategory = useCallback((categoryId: Category) => {
+    setSettings((prev) => ({
+      ...prev,
+      hiddenCategories: prev.hiddenCategories.filter((c) => c !== categoryId),
+    }));
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -163,5 +179,7 @@ export const useSettings = () => {
     removeCustomCategory,
     addCustomSubcategory,
     removeCustomSubcategory,
+    hideCategory,
+    showCategory,
   };
 };
