@@ -9,33 +9,46 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Category, CATEGORIES } from "@/types/expense";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Clock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Category, Subcategory, CATEGORIES, SUBCATEGORIES } from "@/types/expense";
+import { ArrowLeft, Calendar as CalendarIcon, Check, Clock, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AddExpenseProps {
   currencySymbol: string;
-  onSave: (data: { amount: number; category: Category; notes?: string; date: Date }) => void;
+  onSave: (data: {
+    amount: number;
+    category: Category;
+    subcategory?: Subcategory;
+    notes?: string;
+    date: Date;
+  }) => void;
   onBack: () => void;
+  customSubcategories?: Record<Category, { id: string; label: string; icon: string }[]>;
 }
 
-const AddExpense = ({ currencySymbol, onSave, onBack }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]> }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
+  const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
   const [date, setDate] = useState<Date>(new Date());
   const [time, setTime] = useState(format(new Date(), "HH:mm"));
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<{ amount?: string; category?: string }>({});
 
   const handleAmountChange = (value: string) => {
-    // Allow only numbers and decimal point
     const cleaned = value.replace(/[^0-9.]/g, "");
-    // Prevent multiple decimal points
     const parts = cleaned.split(".");
     if (parts.length > 2) return;
-    // Limit decimal places to 2
     if (parts[1]?.length > 2) return;
     setAmount(cleaned);
     if (errors.amount) setErrors((e) => ({ ...e, amount: undefined }));
@@ -43,16 +56,29 @@ const AddExpense = ({ currencySymbol, onSave, onBack }: AddExpenseProps) => {
 
   const validate = (): boolean => {
     const newErrors: { amount?: string; category?: string } = {};
-    
+
     if (!amount || parseFloat(amount) <= 0) {
       newErrors.amount = "Please enter a valid amount";
     }
     if (!category) {
       newErrors.category = "Please select a category";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCategorySelect = (cat: Category) => {
+    setCategory(cat);
+    setSubcategory(null); // Reset subcategory when category changes
+    if (errors.category) setErrors((e) => ({ ...e, category: undefined }));
+  };
+
+  const getAvailableSubcategories = () => {
+    if (!category) return [];
+    const defaultSubs = SUBCATEGORIES[category] || [];
+    const customSubs = customSubcategories[category] || [];
+    return [...defaultSubs, ...customSubs.map((c) => ({ id: c.id, label: c.label }))];
   };
 
   const handleSubmit = () => {
@@ -65,17 +91,21 @@ const AddExpense = ({ currencySymbol, onSave, onBack }: AddExpenseProps) => {
     onSave({
       amount: parseFloat(amount),
       category: category!,
+      subcategory: subcategory || undefined,
       notes: notes.trim() || undefined,
       date: expenseDate,
     });
 
+    const categoryLabel = CATEGORIES.find((c) => c.id === category)?.label || category;
     toast({
       title: "Expense added",
-      description: `${currencySymbol}${parseFloat(amount).toFixed(2)} added to ${CATEGORIES.find(c => c.id === category)?.label}`,
+      description: `${currencySymbol}${parseFloat(amount).toFixed(2)} added to ${categoryLabel}`,
     });
 
     onBack();
   };
+
+  const availableSubcategories = getAvailableSubcategories();
 
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
@@ -126,33 +156,56 @@ const AddExpense = ({ currencySymbol, onSave, onBack }: AddExpenseProps) => {
           <label className="text-sm font-medium text-muted-foreground mb-3 block">
             Category
           </label>
-          <div className="grid grid-cols-3 gap-3">
-            {CATEGORIES.map((cat) => (
-              <Card
-                key={cat.id}
-                className={cn(
-                  "p-4 cursor-pointer transition-all duration-200 text-center",
-                  category === cat.id
-                    ? "ring-2 ring-primary bg-primary/5"
-                    : "hover:bg-secondary"
-                )}
-                onClick={() => {
-                  setCategory(cat.id);
-                  if (errors.category) setErrors((e) => ({ ...e, category: undefined }));
-                }}
-              >
-                <span className="text-2xl mb-1 block">{cat.icon}</span>
-                <p className="text-sm font-medium">{cat.label}</p>
-                {category === cat.id && (
-                  <Check className="w-4 h-4 text-primary mx-auto mt-1" />
-                )}
-              </Card>
-            ))}
-          </div>
+          <ScrollArea className="h-[280px] pr-2">
+            <div className="grid grid-cols-3 gap-3">
+              {CATEGORIES.map((cat) => (
+                <Card
+                  key={cat.id}
+                  className={cn(
+                    "p-4 cursor-pointer transition-all duration-200 text-center",
+                    category === cat.id
+                      ? "ring-2 ring-primary bg-primary/5"
+                      : "hover:bg-secondary"
+                  )}
+                  onClick={() => handleCategorySelect(cat.id)}
+                >
+                  <span className="text-2xl mb-1 block">{cat.icon}</span>
+                  <p className="text-xs font-medium leading-tight">{cat.label}</p>
+                  {category === cat.id && (
+                    <Check className="w-4 h-4 text-primary mx-auto mt-1" />
+                  )}
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
           {errors.category && (
             <p className="text-sm text-destructive mt-2">{errors.category}</p>
           )}
         </div>
+
+        {/* Subcategory Selection */}
+        {category && availableSubcategories.length > 0 && (
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Subcategory (optional)
+            </label>
+            <Select
+              value={subcategory || ""}
+              onValueChange={(value) => setSubcategory(value || null)}
+            >
+              <SelectTrigger className="rounded-xl h-12">
+                <SelectValue placeholder="Select subcategory" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border">
+                {availableSubcategories.map((sub) => (
+                  <SelectItem key={sub.id} value={sub.id}>
+                    {sub.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Date & Time */}
         <div className="grid grid-cols-2 gap-3">
@@ -170,7 +223,7 @@ const AddExpense = ({ currencySymbol, onSave, onBack }: AddExpenseProps) => {
                   {format(date, "MMM d, yyyy")}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 bg-background border border-border" align="start">
                 <Calendar
                   mode="single"
                   selected={date}

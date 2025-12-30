@@ -31,6 +31,9 @@ interface SettingsPanelProps {
   expenses: Expense[];
   onClearAllData: () => void;
   onImportExpenses: (expenses: Omit<Expense, 'id' | 'syncStatus'>[]) => number;
+  onManageCategories?: () => void;
+  onViewIncome?: () => void;
+  onViewRecurring?: () => void;
 }
 
 const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses }: SettingsPanelProps) => {

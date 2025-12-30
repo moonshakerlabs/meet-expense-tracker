@@ -5,31 +5,45 @@ import Dashboard from "@/components/Dashboard";
 import AddExpense from "@/components/AddExpense";
 import SettingsPanel from "@/components/SettingsPanel";
 import ExpenseList from "@/components/ExpenseList";
+import CategoryDetailView from "@/components/CategoryDetailView";
+import IncomePanel from "@/components/IncomePanel";
+import RecurringExpensesPanel from "@/components/RecurringExpensesPanel";
+import CategoryManager from "@/components/CategoryManager";
 import InstallPrompt from "@/components/InstallPrompt";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
-import { UserSettings } from "@/types/expense";
+import { useIncome } from "@/hooks/useIncome";
+import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import { UserSettings, Category } from "@/types/expense";
 
-type View = "dashboard" | "add-expense" | "settings" | "expense-list";
+type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>("dashboard");
-  
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory } = useSettings();
+  const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
+  const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
   const handleClearAllData = () => {
     clearAllExpenses();
     resetSettings();
   };
 
-  // Show splash screen
+  const handleViewCategory = (category: Category, date: Date) => {
+    setSelectedCategory(category);
+    setSelectedDate(date);
+    setCurrentView("category-detail");
+  };
+
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -38,18 +52,10 @@ const Index = () => {
     );
   }
 
-  // Show onboarding if not completed
   if (!settings.hasCompletedOnboarding) {
-    return (
-      <Onboarding
-        onComplete={(newSettings: Partial<UserSettings>) => {
-          updateSettings(newSettings);
-        }}
-      />
-    );
+    return <Onboarding onComplete={(newSettings: Partial<UserSettings>) => updateSettings(newSettings)} />;
   }
 
-  // Main app views
   return (
     <>
       {currentView === "dashboard" && (
@@ -59,6 +65,10 @@ const Index = () => {
           onAddExpense={() => setCurrentView("add-expense")}
           onViewExpenses={() => setCurrentView("expense-list")}
           onOpenSettings={() => setCurrentView("settings")}
+          onViewCategory={handleViewCategory}
+          onViewIncome={() => setCurrentView("income")}
+          onViewRecurring={() => setCurrentView("recurring")}
+          monthlyIncome={getMonthlyIncome()}
         />
       )}
 
@@ -67,6 +77,7 @@ const Index = () => {
           currencySymbol={settings.currencySymbol}
           onSave={addExpense}
           onBack={() => setCurrentView("dashboard")}
+          customSubcategories={settings.customSubcategories}
         />
       )}
 
@@ -78,6 +89,9 @@ const Index = () => {
           expenses={expenses}
           onClearAllData={handleClearAllData}
           onImportExpenses={importExpenses}
+          onManageCategories={() => setCurrentView("manage-categories")}
+          onViewIncome={() => setCurrentView("income")}
+          onViewRecurring={() => setCurrentView("recurring")}
         />
       )}
 
@@ -89,6 +103,57 @@ const Index = () => {
           onBack={() => setCurrentView("dashboard")}
           onUpdateExpense={updateExpense}
           onDeleteExpense={deleteExpense}
+        />
+      )}
+
+      {currentView === "category-detail" && selectedCategory && (
+        <CategoryDetailView
+          category={selectedCategory}
+          selectedDate={selectedDate}
+          expenses={expenses}
+          formatCurrency={formatCurrency}
+          onBack={() => setCurrentView("dashboard")}
+          onChangeMonth={setSelectedDate}
+        />
+      )}
+
+      {currentView === "income" && (
+        <IncomePanel
+          incomes={incomes}
+          formatCurrency={formatCurrency}
+          currencySymbol={settings.currencySymbol}
+          onAddIncome={addIncome}
+          onUpdateIncome={updateIncome}
+          onDeleteIncome={deleteIncome}
+          onStopRecurring={stopRecurringIncome}
+          getMonthlyIncome={getMonthlyIncome}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
+
+      {currentView === "recurring" && (
+        <RecurringExpensesPanel
+          recurringExpenses={recurringExpenses}
+          formatCurrency={formatCurrency}
+          currencySymbol={settings.currencySymbol}
+          onAdd={addRecurringExpense}
+          onUpdate={updateRecurringExpense}
+          onDelete={deleteRecurringExpense}
+          onToggleActive={toggleActive}
+          getExpectedMonthlyTotal={getExpectedMonthlyTotal}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
+
+      {currentView === "manage-categories" && (
+        <CategoryManager
+          customCategories={settings.customCategories}
+          customSubcategories={settings.customSubcategories}
+          onAddCategory={addCustomCategory}
+          onRemoveCategory={removeCustomCategory}
+          onAddSubcategory={addCustomSubcategory}
+          onRemoveSubcategory={removeCustomSubcategory}
+          onBack={() => setCurrentView("settings")}
         />
       )}
 

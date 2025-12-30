@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings } from "lucide-react";
-import { Expense, CATEGORIES, Category } from "@/types/expense";
+import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank } from "lucide-react";
+import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES } from "@/types/expense";
 import {
   PieChart,
   Pie,
@@ -17,17 +17,11 @@ interface DashboardProps {
   onAddExpense: () => void;
   onViewExpenses: () => void;
   onOpenSettings: () => void;
+  onViewCategory?: (category: Category, date: Date) => void;
+  onViewIncome?: () => void;
+  onViewRecurring?: () => void;
+  monthlyIncome?: number;
 }
-
-const CATEGORY_COLORS: Record<Category, string> = {
-  food: "hsl(25, 95%, 53%)",
-  transport: "hsl(210, 80%, 55%)",
-  shopping: "hsl(280, 60%, 55%)",
-  rent: "hsl(340, 75%, 55%)",
-  bills: "hsl(45, 93%, 47%)",
-  misc: "hsl(200, 15%, 55%)",
-  custom: "hsl(158, 64%, 42%)",
-};
 
 const Dashboard = ({
   expenses,
@@ -35,10 +29,25 @@ const Dashboard = ({
   onAddExpense,
   onViewExpenses,
   onOpenSettings,
+  onViewCategory,
+  onViewIncome,
+  onViewRecurring,
+  monthlyIncome = 0,
 }: DashboardProps) => {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const month = selectedDate.getMonth();
+  const year = selectedDate.getFullYear();
+
+  const goToPreviousMonth = () => {
+    setSelectedDate(new Date(year, month - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    const next = new Date(year, month + 1, 1);
+    if (next <= new Date()) {
+      setSelectedDate(next);
+    }
+  };
 
   const monthlyExpenses = useMemo(
     () =>
@@ -82,12 +91,11 @@ const Dashboard = ({
       .sort((a, b) => b.value - a.value);
   }, [monthlyExpenses]);
 
-  const recentExpenses = useMemo(
-    () => expenses.slice(0, 3),
-    [expenses]
-  );
+  const recentExpenses = useMemo(() => expenses.slice(0, 3), [expenses]);
 
-  const monthName = now.toLocaleString("default", { month: "long" });
+  const monthName = selectedDate.toLocaleString("default", { month: "long", year: "numeric" });
+  const isCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
+  const savings = monthlyIncome - monthlyTotal;
 
   return (
     <div className="min-h-screen bg-background pb-24 safe-top">
@@ -108,9 +116,25 @@ const Dashboard = ({
           </Button>
         </div>
 
+        {/* Month Navigation */}
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <span className="font-semibold text-lg min-w-[150px] text-center">{monthName}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goToNextMonth}
+            disabled={isCurrentMonth}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </div>
+
         {/* Main Stats Card */}
         <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-3xl mb-4">
-          <p className="text-sm opacity-80 mb-1">{monthName} Spending</p>
+          <p className="text-sm opacity-80 mb-1">Monthly Spending</p>
           <h2 className="font-display font-bold text-4xl mb-4">
             {formatCurrency(monthlyTotal)}
           </h2>
@@ -119,12 +143,48 @@ const Dashboard = ({
               <p className="text-xs opacity-70">Transactions</p>
               <p className="font-semibold">{monthlyExpenses.length}</p>
             </div>
-            <div>
-              <p className="text-xs opacity-70">Today</p>
-              <p className="font-semibold">{formatCurrency(todayTotal)}</p>
-            </div>
+            {isCurrentMonth && (
+              <div>
+                <p className="text-xs opacity-70">Today</p>
+                <p className="font-semibold">{formatCurrency(todayTotal)}</p>
+              </div>
+            )}
           </div>
         </Card>
+
+        {/* Income & Savings Cards */}
+        {monthlyIncome > 0 && (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <Card
+              className="p-4 rounded-2xl cursor-pointer hover:bg-secondary/50 transition-colors"
+              onClick={onViewIncome}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Income</p>
+                  <p className="font-semibold">{formatCurrency(monthlyIncome)}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${savings >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+                  <PiggyBank className={`w-5 h-5 ${savings >= 0 ? 'text-emerald-500' : 'text-destructive'}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Savings</p>
+                  <p className={`font-semibold ${savings < 0 ? 'text-destructive' : ''}`}>
+                    {formatCurrency(Math.abs(savings))}
+                    {savings < 0 && ' (-)'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -186,7 +246,9 @@ const Dashboard = ({
                       {categoryData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={CATEGORY_COLORS[entry.category as Category]}
+                          fill={CATEGORY_COLORS[entry.category as Category] || CATEGORY_COLORS.misc}
+                          className="cursor-pointer"
+                          onClick={() => onViewCategory?.(entry.category as Category, selectedDate)}
                         />
                       ))}
                     </Pie>
@@ -198,11 +260,15 @@ const Dashboard = ({
               </div>
               <div className="flex-1 space-y-2">
                 {categoryData.slice(0, 4).map((item) => (
-                  <div key={item.category} className="flex items-center gap-2">
+                  <div
+                    key={item.category}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 rounded-lg p-1 -ml-1 transition-colors"
+                    onClick={() => onViewCategory?.(item.category as Category, selectedDate)}
+                  >
                     <div
                       className="w-3 h-3 rounded-full"
                       style={{
-                        backgroundColor: CATEGORY_COLORS[item.category as Category],
+                        backgroundColor: CATEGORY_COLORS[item.category as Category] || CATEGORY_COLORS.misc,
                       }}
                     />
                     <span className="text-sm flex-1">{item.name}</span>
@@ -211,6 +277,11 @@ const Dashboard = ({
                     </span>
                   </div>
                 ))}
+                {categoryData.length > 4 && (
+                  <p className="text-xs text-muted-foreground pl-5">
+                    +{categoryData.length - 4} more categories
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -234,6 +305,9 @@ const Dashboard = ({
             <div className="space-y-3">
               {recentExpenses.map((expense) => {
                 const category = CATEGORIES.find((c) => c.id === expense.category);
+                const subcategoryLabel = expense.subcategory
+                  ? SUBCATEGORIES[expense.category]?.find((s) => s.id === expense.subcategory)?.label
+                  : null;
                 return (
                   <Card key={expense.id} className="p-4 rounded-2xl">
                     <div className="flex items-center gap-3">
@@ -249,6 +323,11 @@ const Dashboard = ({
                         <p className="font-medium truncate">
                           {category?.label || expense.category}
                         </p>
+                        {subcategoryLabel && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {subcategoryLabel}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           {new Date(expense.date).toLocaleDateString()}
                         </p>
@@ -283,11 +362,7 @@ const Dashboard = ({
       </div>
 
       {/* Floating Action Button */}
-      <button
-        className="fab"
-        onClick={onAddExpense}
-        aria-label="Add expense"
-      >
+      <button className="fab" onClick={onAddExpense} aria-label="Add expense">
         <Plus className="w-6 h-6" />
       </button>
     </div>
