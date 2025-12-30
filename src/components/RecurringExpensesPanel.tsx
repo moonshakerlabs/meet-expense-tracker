@@ -26,9 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, CalendarClock, Pencil, Trash2, Power } from "lucide-react";
-import { RecurringExpense, Category, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS } from "@/types/expense";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { ArrowLeft, Plus, CalendarClock, Trash2, Power, CalendarIcon } from "lucide-react";
+import { RecurringExpense, Category, FrequencyUnit, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS } from "@/types/expense";
+import { formatFrequency } from "@/hooks/useRecurringExpenses";
 import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface RecurringExpensesPanelProps {
   recurringExpenses: RecurringExpense[];
@@ -39,7 +44,9 @@ interface RecurringExpensesPanelProps {
     amount: number;
     category: Category;
     subcategory?: string;
-    dayOfMonth: number;
+    frequencyValue: number;
+    frequencyUnit: FrequencyUnit;
+    startDate: Date;
   }) => void;
   onUpdate: (id: string, data: Partial<RecurringExpense>) => void;
   onDelete: (id: string) => void;
@@ -47,6 +54,13 @@ interface RecurringExpensesPanelProps {
   getExpectedMonthlyTotal: () => number;
   onBack: () => void;
 }
+
+const FREQUENCY_PRESETS = [
+  { label: "Monthly", value: 1, unit: "months" as FrequencyUnit },
+  { label: "Quarterly", value: 3, unit: "months" as FrequencyUnit },
+  { label: "Half-yearly", value: 6, unit: "months" as FrequencyUnit },
+  { label: "Yearly", value: 1, unit: "years" as FrequencyUnit },
+];
 
 const RecurringExpensesPanel = ({
   recurringExpenses,
@@ -65,7 +79,9 @@ const RecurringExpensesPanel = ({
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category>("bills");
   const [subcategory, setSubcategory] = useState("");
-  const [dayOfMonth, setDayOfMonth] = useState("1");
+  const [frequencyValue, setFrequencyValue] = useState("1");
+  const [frequencyUnit, setFrequencyUnit] = useState<FrequencyUnit>("months");
+  const [startDate, setStartDate] = useState<Date>(new Date());
 
   const expectedTotal = getExpectedMonthlyTotal();
   const activeCount = recurringExpenses.filter((r) => r.isActive).length;
@@ -78,6 +94,32 @@ const RecurringExpensesPanel = ({
     setAmount(cleaned);
   };
 
+  const handleFrequencyValueChange = (value: string) => {
+    const num = parseInt(value);
+    if (isNaN(num) || num < 1) {
+      setFrequencyValue("1");
+    } else if (num > 365) {
+      setFrequencyValue("365");
+    } else {
+      setFrequencyValue(value);
+    }
+  };
+
+  const handlePresetClick = (preset: typeof FREQUENCY_PRESETS[0]) => {
+    setFrequencyValue(preset.value.toString());
+    setFrequencyUnit(preset.unit);
+  };
+
+  const resetForm = () => {
+    setName("");
+    setAmount("");
+    setCategory("bills");
+    setSubcategory("");
+    setFrequencyValue("1");
+    setFrequencyUnit("months");
+    setStartDate(new Date());
+  };
+
   const handleSave = () => {
     if (!name.trim()) {
       toast({ title: "Error", description: "Please enter a name", variant: "destructive" });
@@ -88,24 +130,24 @@ const RecurringExpensesPanel = ({
       return;
     }
 
+    const freqValue = parseInt(frequencyValue) || 1;
+
     onAdd({
       name: name.trim(),
       amount: parseFloat(amount),
       category,
       subcategory: subcategory || undefined,
-      dayOfMonth: parseInt(dayOfMonth),
+      frequencyValue: freqValue,
+      frequencyUnit,
+      startDate,
     });
 
     toast({
       title: "Recurring expense added",
-      description: `${name} - ${currencySymbol}${parseFloat(amount).toFixed(2)} on day ${dayOfMonth}`,
+      description: `${name} - ${currencySymbol}${parseFloat(amount).toFixed(2)} (${formatFrequency(freqValue, frequencyUnit)})`,
     });
 
-    setName("");
-    setAmount("");
-    setCategory("bills");
-    setSubcategory("");
-    setDayOfMonth("1");
+    resetForm();
     setShowAddModal(false);
   };
 
@@ -176,7 +218,10 @@ const RecurringExpensesPanel = ({
                           {subcategoryLabel && ` • ${subcategoryLabel}`}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Day {recurring.dayOfMonth} of each month
+                          {formatFrequency(recurring.frequencyValue, recurring.frequencyUnit)}
+                        </p>
+                        <p className="text-xs text-primary">
+                          Next: {format(new Date(recurring.nextDueDate), "dd MMM yyyy")}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -230,7 +275,10 @@ const RecurringExpensesPanel = ({
       </div>
 
       {/* Add Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+      <Dialog open={showAddModal} onOpenChange={(open) => {
+        if (!open) resetForm();
+        setShowAddModal(open);
+      }}>
         <DialogContent className="max-w-[90%] rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Add Recurring Expense</DialogTitle>
@@ -316,19 +364,86 @@ const RecurringExpensesPanel = ({
               </div>
             )}
 
-            {/* Day of Month */}
+            {/* Frequency */}
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Day of Month (1-31)
+                Frequency
               </label>
-              <Input
-                type="number"
-                min="1"
-                max="31"
-                value={dayOfMonth}
-                onChange={(e) => setDayOfMonth(e.target.value)}
-                className="rounded-xl"
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">Once every</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={frequencyValue}
+                      onChange={(e) => handleFrequencyValueChange(e.target.value)}
+                      className="rounded-xl w-20 text-center"
+                    />
+                    <Select value={frequencyUnit} onValueChange={(v) => setFrequencyUnit(v as FrequencyUnit)}>
+                      <SelectTrigger className="rounded-xl w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border border-border">
+                        <SelectItem value="days">days</SelectItem>
+                        <SelectItem value="months">months</SelectItem>
+                        <SelectItem value="years">years</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Preset buttons */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {FREQUENCY_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "rounded-full text-xs",
+                      frequencyValue === preset.value.toString() && frequencyUnit === preset.unit
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : ""
+                    )}
+                    onClick={() => handlePresetClick(preset)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Start Date */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Starting Date
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal rounded-xl h-12",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background border border-border" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(date) => date && setStartDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Save Button */}

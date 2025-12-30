@@ -42,16 +42,23 @@ export interface Income {
 
 export type IncomeSource = "salary" | "rent" | "other";
 
+export type FrequencyUnit = "days" | "months" | "years";
+
 export interface RecurringExpense {
   id: string;
   name: string;
   amount: number;
   category: Category;
   subcategory?: Subcategory;
-  dayOfMonth: number; // 1-31
+  frequencyValue: number; // e.g., 1, 2, 3, 6, 12
+  frequencyUnit: FrequencyUnit; // "days" | "months" | "years"
+  startDate: Date;
+  nextDueDate: Date;
   isActive: boolean;
   createdAt: Date;
   lastGenerated?: Date;
+  // Legacy field for backward compatibility
+  dayOfMonth?: number;
 }
 
 export interface CustomCategory {
