@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserSettings, CURRENCIES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -36,7 +36,7 @@ interface SettingsPanelProps {
   onViewRecurring?: () => void;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -221,6 +221,68 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                   <p className="font-medium">Theme</p>
                   <p className="text-sm text-muted-foreground capitalize">
                     {settings.theme}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
+        {/* Finance Management */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Finance Management
+          </h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={onViewIncome}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Income</p>
+                  <p className="text-sm text-muted-foreground">
+                    Manage income sources
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={onViewRecurring}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Recurring Expenses</p>
+                  <p className="text-sm text-muted-foreground">
+                    Manage recurring payments
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={onManageCategories}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <FolderOpen className="w-5 h-5 text-purple-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Manage Categories</p>
+                  <p className="text-sm text-muted-foreground">
+                    Add custom categories
                   </p>
                 </div>
               </div>
