@@ -201,6 +201,8 @@ export const importFromCSV = (fileContent: string): { expenses: Omit<Expense, 'i
           notes: notesStr,
           date,
           createdAt: isNaN(createdAt.getTime()) ? new Date() : createdAt,
+          currency: "USD", // Default for imported expenses
+          currencySymbol: "$",
         });
 
         result.imported++;

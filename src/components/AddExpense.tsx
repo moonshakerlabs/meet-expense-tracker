@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Category, Subcategory, CATEGORIES, SUBCATEGORIES } from "@/types/expense";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Clock, Plus } from "lucide-react";
+import { Category, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES } from "@/types/expense";
+import { ArrowLeft, Calendar as CalendarIcon, Check, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -25,19 +25,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AddExpenseProps {
   currencySymbol: string;
+  currency: string;
   onSave: (data: {
     amount: number;
     category: Category;
     subcategory?: Subcategory;
     notes?: string;
     date: Date;
+    currency: string;
+    currencySymbol: string;
   }) => void;
   onBack: () => void;
   customSubcategories?: Record<Category, { id: string; label: string; icon: string }[]>;
   hiddenCategories?: Category[];
 }
 
-const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]>, hiddenCategories = [] }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]>, hiddenCategories = [] }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
@@ -45,6 +48,10 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
   const [time, setTime] = useState(format(new Date(), "HH:mm"));
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<{ amount?: string; category?: string }>({});
+  
+  // Currency state - defaults to user's primary currency
+  const [selectedCurrency, setSelectedCurrency] = useState(currency);
+  const [selectedCurrencySymbol, setSelectedCurrencySymbol] = useState(currencySymbol);
 
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, "");
@@ -53,6 +60,14 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
     if (parts[1]?.length > 2) return;
     setAmount(cleaned);
     if (errors.amount) setErrors((e) => ({ ...e, amount: undefined }));
+  };
+
+  const handleCurrencyChange = (code: string) => {
+    const curr = CURRENCIES.find((c) => c.code === code);
+    if (curr) {
+      setSelectedCurrency(curr.code);
+      setSelectedCurrencySymbol(curr.symbol);
+    }
   };
 
   const validate = (): boolean => {
@@ -95,12 +110,14 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
       subcategory: subcategory || undefined,
       notes: notes.trim() || undefined,
       date: expenseDate,
+      currency: selectedCurrency,
+      currencySymbol: selectedCurrencySymbol,
     });
 
     const categoryLabel = CATEGORIES.find((c) => c.id === category)?.label || category;
     toast({
       title: "Expense added",
-      description: `${currencySymbol}${parseFloat(amount).toFixed(2)} added to ${categoryLabel}`,
+      description: `${selectedCurrencySymbol}${parseFloat(amount).toFixed(2)} added to ${categoryLabel}`,
     });
 
     onBack();
@@ -129,129 +146,151 @@ const AddExpense = ({ currencySymbol, onSave, onBack, customSubcategories = {} a
       {/* Scrollable Form Content */}
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="p-5 space-y-6">
-          {/* Amount Input */}
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-2 block">
-            Amount
-          </label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold text-muted-foreground">
-              {currencySymbol}
-            </span>
-            <Input
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => handleAmountChange(e.target.value)}
-              className={cn(
-                "pl-10 h-16 text-3xl font-bold rounded-2xl border-2 transition-colors",
-                errors.amount ? "border-destructive" : "focus:border-primary"
-              )}
-            />
-          </div>
-          {errors.amount && (
-            <p className="text-sm text-destructive mt-2">{errors.amount}</p>
-          )}
-        </div>
-
-        {/* Category Selection */}
-        <div>
-          <label className="text-sm font-medium text-muted-foreground mb-3 block">
-            Category
-          </label>
-          <ScrollArea className="h-[240px] pr-2">
-            <div className="grid grid-cols-3 gap-3">
-              {visibleCategories.map((cat) => (
-                <Card
-                  key={cat.id}
+          {/* Amount Input with Currency Selector */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Amount
+            </label>
+            <div className="flex gap-2">
+              {/* Currency Dropdown */}
+              <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
+                <SelectTrigger className="w-[90px] rounded-xl h-16 border-2">
+                  <SelectValue>
+                    <span className="font-semibold">{selectedCurrency}</span>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="bg-background border border-border max-h-[300px]">
+                  {CURRENCIES.map((curr) => (
+                    <SelectItem key={curr.code} value={curr.code}>
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold">{curr.symbol}</span>
+                        <span className="text-muted-foreground">{curr.code}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Amount Input */}
+              <div className="relative flex-1">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-semibold text-muted-foreground">
+                  {selectedCurrencySymbol}
+                </span>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => handleAmountChange(e.target.value)}
                   className={cn(
-                    "p-4 cursor-pointer transition-all duration-200 text-center",
-                    category === cat.id
-                      ? "ring-2 ring-primary bg-primary/5"
-                      : "hover:bg-secondary"
+                    "pl-10 h-16 text-3xl font-bold rounded-2xl border-2 transition-colors",
+                    errors.amount ? "border-destructive" : "focus:border-primary"
                   )}
-                  onClick={() => handleCategorySelect(cat.id)}
-                >
-                  <span className="text-2xl mb-1 block">{cat.icon}</span>
-                  <p className="text-xs font-medium leading-tight">{cat.label}</p>
-                  {category === cat.id && (
-                    <Check className="w-4 h-4 text-primary mx-auto mt-1" />
-                  )}
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-          {errors.category && (
-            <p className="text-sm text-destructive mt-2">{errors.category}</p>
-          )}
-        </div>
-
-        {/* Subcategory Selection */}
-        {category && availableSubcategories.length > 0 && (
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">
-              Subcategory (optional)
-            </label>
-            <Select
-              value={subcategory || ""}
-              onValueChange={(value) => setSubcategory(value || null)}
-            >
-              <SelectTrigger className="rounded-xl h-12">
-                <SelectValue placeholder="Select subcategory" />
-              </SelectTrigger>
-              <SelectContent className="bg-background border border-border">
-                {availableSubcategories.map((sub) => (
-                  <SelectItem key={sub.id} value={sub.id}>
-                    {sub.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Date & Time */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">
-              Date
-            </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal rounded-xl h-12"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(date, "MMM d, yyyy")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-background border border-border" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => d && setDate(d)}
-                  initialFocus
                 />
-              </PopoverContent>
-            </Popover>
+              </div>
+            </div>
+            {errors.amount && (
+              <p className="text-sm text-destructive mt-2">{errors.amount}</p>
+            )}
           </div>
+
+          {/* Category Selection */}
           <div>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">
-              Time
+            <label className="text-sm font-medium text-muted-foreground mb-3 block">
+              Category
             </label>
-            <div className="relative">
-              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="pl-10 h-12 rounded-xl"
-              />
+            <ScrollArea className="h-[240px] pr-2">
+              <div className="grid grid-cols-3 gap-3">
+                {visibleCategories.map((cat) => (
+                  <Card
+                    key={cat.id}
+                    className={cn(
+                      "p-4 cursor-pointer transition-all duration-200 text-center",
+                      category === cat.id
+                        ? "ring-2 ring-primary bg-primary/5"
+                        : "hover:bg-secondary"
+                    )}
+                    onClick={() => handleCategorySelect(cat.id)}
+                  >
+                    <span className="text-2xl mb-1 block">{cat.icon}</span>
+                    <p className="text-xs font-medium leading-tight">{cat.label}</p>
+                    {category === cat.id && (
+                      <Check className="w-4 h-4 text-primary mx-auto mt-1" />
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+            {errors.category && (
+              <p className="text-sm text-destructive mt-2">{errors.category}</p>
+            )}
+          </div>
+
+          {/* Subcategory Selection */}
+          {category && availableSubcategories.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Subcategory (optional)
+              </label>
+              <Select
+                value={subcategory || ""}
+                onValueChange={(value) => setSubcategory(value || null)}
+              >
+                <SelectTrigger className="rounded-xl h-12">
+                  <SelectValue placeholder="Select subcategory" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border border-border">
+                  {availableSubcategories.map((sub) => (
+                    <SelectItem key={sub.id} value={sub.id}>
+                      {sub.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Date & Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Date
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal rounded-xl h-12"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(date, "MMM d, yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background border border-border" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(d) => d && setDate(d)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Time
+              </label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="pl-10 h-12 rounded-xl"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
           {/* Notes */}
           <div>

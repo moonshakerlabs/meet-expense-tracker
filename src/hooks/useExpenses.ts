@@ -19,6 +19,9 @@ export const useExpenses = () => {
           ...e,
           date: new Date(e.date),
           createdAt: new Date(e.createdAt),
+          // Backward compatibility: default to USD if no currency
+          currency: e.currency || "USD",
+          currencySymbol: e.currencySymbol || "$",
         }));
         setExpenses(expensesWithDates);
       }
@@ -43,6 +46,8 @@ export const useExpenses = () => {
       subcategory?: Subcategory;
       notes?: string;
       date: Date;
+      currency: string;
+      currencySymbol: string;
       recurringId?: string;
     }): Expense => {
       const newExpense: Expense = {

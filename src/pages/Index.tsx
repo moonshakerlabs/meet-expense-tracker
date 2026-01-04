@@ -25,7 +25,7 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, hideCategory, showCategory } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
@@ -62,6 +62,8 @@ const Index = () => {
         <Dashboard
           expenses={expenses}
           formatCurrency={formatCurrency}
+          defaultCurrency={settings.currency}
+          defaultCurrencySymbol={settings.currencySymbol}
           onAddExpense={() => setCurrentView("add-expense")}
           onViewExpenses={() => setCurrentView("expense-list")}
           onOpenSettings={() => setCurrentView("settings")}
@@ -75,6 +77,7 @@ const Index = () => {
       {currentView === "add-expense" && (
         <AddExpense
           currencySymbol={settings.currencySymbol}
+          currency={settings.currency}
           onSave={addExpense}
           onBack={() => setCurrentView("dashboard")}
           customSubcategories={settings.customSubcategories}
@@ -101,6 +104,7 @@ const Index = () => {
           expenses={expenses}
           formatCurrency={formatCurrency}
           currencySymbol={settings.currencySymbol}
+          defaultCurrency={settings.currency}
           onBack={() => setCurrentView("dashboard")}
           onUpdateExpense={updateExpense}
           onDeleteExpense={deleteExpense}
@@ -113,6 +117,7 @@ const Index = () => {
           selectedDate={selectedDate}
           expenses={expenses}
           formatCurrency={formatCurrency}
+          defaultCurrencySymbol={settings.currencySymbol}
           onBack={() => setCurrentView("dashboard")}
           onChangeMonth={setSelectedDate}
         />
@@ -155,6 +160,7 @@ const Index = () => {
           onRemoveCategory={removeCustomCategory}
           onAddSubcategory={addCustomSubcategory}
           onRemoveSubcategory={removeCustomSubcategory}
+          onUpdateSubcategory={updateSubcategory}
           onHideCategory={hideCategory}
           onShowCategory={showCategory}
           onBack={() => setCurrentView("settings")}
