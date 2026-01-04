@@ -17,6 +17,8 @@ export type Subcategory = string;
 export interface Expense {
   id: string;
   amount: number;
+  currency: string;
+  currencySymbol: string;
   category: Category;
   subcategory?: Subcategory;
   notes?: string;
@@ -182,8 +184,14 @@ export const CURRENCIES = [
   { code: "GBP", symbol: "£", name: "British Pound" },
   { code: "INR", symbol: "₹", name: "Indian Rupee" },
   { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  { code: "CAD", symbol: "$", name: "Canadian Dollar" },
-  { code: "AUD", symbol: "$", name: "Australian Dollar" },
+  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
+  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
+  { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
+  { code: "MYR", symbol: "RM", name: "Malaysian Ringgit" },
+  { code: "CHF", symbol: "CHF", name: "Swiss Franc" },
+  { code: "THB", symbol: "฿", name: "Thai Baht" },
+  { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
+  { code: "PHP", symbol: "₱", name: "Philippine Peso" },
 ];
 
 export const CATEGORY_COLORS: Record<Category, string> = {

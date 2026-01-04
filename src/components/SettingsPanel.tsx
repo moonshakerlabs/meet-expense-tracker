@@ -438,11 +438,11 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
           <SheetHeader className="mb-4">
             <SheetTitle>Select Currency</SheetTitle>
           </SheetHeader>
-          <div className="grid grid-cols-2 gap-3 pb-8">
+          <div className="grid grid-cols-3 gap-2 pb-8 max-h-[60vh] overflow-y-auto">
             {CURRENCIES.map((currency) => (
               <Card
                 key={currency.code}
-                className={`p-4 cursor-pointer transition-all duration-200 ${
+                className={`p-3 cursor-pointer transition-all duration-200 ${
                   settings.currency === currency.code
                     ? "ring-2 ring-primary bg-primary/5"
                     : "hover:bg-secondary"
@@ -455,13 +455,11 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                   setShowCurrencySheet(false);
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-lg">{currency.symbol}</p>
-                    <p className="text-sm text-muted-foreground">{currency.code}</p>
-                  </div>
+                <div className="text-center">
+                  <p className="font-bold text-lg">{currency.symbol}</p>
+                  <p className="text-xs text-muted-foreground">{currency.code}</p>
                   {settings.currency === currency.code && (
-                    <Check className="w-5 h-5 text-primary" />
+                    <Check className="w-4 h-4 text-primary mx-auto mt-1" />
                   )}
                 </div>
               </Card>

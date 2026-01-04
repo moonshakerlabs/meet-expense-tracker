@@ -10,10 +10,13 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DashboardProps {
   expenses: Expense[];
   formatCurrency: (amount: number) => string;
+  defaultCurrency: string;
+  defaultCurrencySymbol: string;
   onAddExpense: () => void;
   onViewExpenses: () => void;
   onOpenSettings: () => void;
@@ -26,6 +29,8 @@ interface DashboardProps {
 const Dashboard = ({
   expenses,
   formatCurrency,
+  defaultCurrency,
+  defaultCurrencySymbol,
   onAddExpense,
   onViewExpenses,
   onOpenSettings,
@@ -58,10 +63,24 @@ const Dashboard = ({
     [expenses, month, year]
   );
 
-  const monthlyTotal = useMemo(
-    () => monthlyExpenses.reduce((sum, e) => sum + e.amount, 0),
-    [monthlyExpenses]
-  );
+  // Group expenses by currency
+  const currencyBreakdown = useMemo(() => {
+    const grouped: Record<string, { total: number; symbol: string; count: number }> = {};
+    
+    monthlyExpenses.forEach((e) => {
+      const curr = e.currency || defaultCurrency;
+      const symbol = e.currencySymbol || defaultCurrencySymbol;
+      if (!grouped[curr]) {
+        grouped[curr] = { total: 0, symbol, count: 0 };
+      }
+      grouped[curr].total += e.amount;
+      grouped[curr].count += 1;
+    });
+    
+    return grouped;
+  }, [monthlyExpenses, defaultCurrency, defaultCurrencySymbol]);
+
+  const hasMultipleCurrencies = Object.keys(currencyBreakdown).length > 1;
 
   const todayTotal = useMemo(() => {
     const today = new Date();
@@ -100,7 +119,10 @@ const Dashboard = ({
 
   const monthName = selectedDate.toLocaleString("default", { month: "long", year: "numeric" });
   const isCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
-  const savings = monthlyIncome - monthlyTotal;
+  
+  // Calculate savings using default currency total only
+  const defaultCurrencyTotal = currencyBreakdown[defaultCurrency]?.total || 0;
+  const savings = monthlyIncome - defaultCurrencyTotal;
 
   return (
     <div className="min-h-screen bg-background pb-24 safe-top">
@@ -137,12 +159,35 @@ const Dashboard = ({
           </Button>
         </div>
 
-        {/* Main Stats Card */}
+        {/* Main Stats Card - Multi-Currency */}
         <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-3xl mb-4">
           <p className="text-sm opacity-80 mb-1">Monthly Spending</p>
-          <h2 className="font-display font-bold text-4xl mb-4">
-            {formatCurrency(monthlyTotal)}
-          </h2>
+          
+          {hasMultipleCurrencies ? (
+            <>
+              <ScrollArea className="max-h-[120px] mb-3">
+                <div className="space-y-2">
+                  {Object.entries(currencyBreakdown).map(([curr, data]) => (
+                    <div key={curr} className="flex justify-between items-center">
+                      <span className="font-display font-bold text-2xl">
+                        {data.symbol}{data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-sm opacity-70">
+                        {curr} · {data.count} txn
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            <h2 className="font-display font-bold text-4xl mb-4">
+              {defaultCurrencyTotal > 0 
+                ? `${defaultCurrencySymbol}${defaultCurrencyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : formatCurrency(0)}
+            </h2>
+          )}
+          
           <div className="flex gap-6">
             <div>
               <p className="text-xs opacity-70">Transactions</p>
@@ -302,6 +347,7 @@ const Dashboard = ({
                 const subcategoryLabel = expense.subcategory
                   ? SUBCATEGORIES[expense.category]?.find((s) => s.id === expense.subcategory)?.label
                   : null;
+                const expenseSymbol = expense.currencySymbol || defaultCurrencySymbol;
                 return (
                   <Card key={expense.id} className="p-4 rounded-2xl">
                     <div className="flex items-center gap-3">
@@ -327,7 +373,7 @@ const Dashboard = ({
                         </p>
                       </div>
                       <p className="font-semibold">
-                        -{formatCurrency(expense.amount)}
+                        -{expenseSymbol}{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
                   </Card>

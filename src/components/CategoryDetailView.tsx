@@ -17,6 +17,7 @@ interface CategoryDetailViewProps {
   selectedDate: Date;
   expenses: Expense[];
   formatCurrency: (amount: number) => string;
+  defaultCurrencySymbol: string;
   onBack: () => void;
   onChangeMonth: (date: Date) => void;
 }
@@ -26,6 +27,7 @@ const CategoryDetailView = ({
   selectedDate,
   expenses,
   formatCurrency,
+  defaultCurrencySymbol,
   onBack,
   onChangeMonth,
 }: CategoryDetailViewProps) => {
@@ -227,6 +229,7 @@ const CategoryDetailView = ({
                     ? subcategories.find((s) => s.id === expense.subcategory)
                         ?.label
                     : null;
+                  const expenseSymbol = expense.currencySymbol || defaultCurrencySymbol;
                   return (
                     <Card key={expense.id} className="p-4 rounded-2xl">
                       <div className="flex items-center gap-3">
@@ -252,7 +255,7 @@ const CategoryDetailView = ({
                           </p>
                         </div>
                         <p className="font-semibold">
-                          -{formatCurrency(expense.amount)}
+                          -{expenseSymbol}{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                     </Card>

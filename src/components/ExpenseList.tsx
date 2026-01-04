@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check } from "lucide-react";
-import { Expense, CATEGORIES, Category, SUBCATEGORIES, CATEGORY_COLORS } from "@/types/expense";
+import { Expense, CATEGORIES, Category, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES } from "@/types/expense";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -43,6 +43,7 @@ interface ExpenseListProps {
   expenses: Expense[];
   formatCurrency: (amount: number) => string;
   currencySymbol: string;
+  defaultCurrency: string;
   onBack: () => void;
   onUpdateExpense: (id: string, data: Partial<Expense>) => void;
   onDeleteExpense: (id: string) => void;
@@ -58,7 +59,7 @@ const FILTERS: { id: FilterType; label: string }[] = [
   { id: "month", label: "Month" },
 ];
 
-const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdateExpense, onDeleteExpense }: ExpenseListProps) => {
+const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency, onBack, onUpdateExpense, onDeleteExpense }: ExpenseListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortType>("newest");
@@ -71,6 +72,8 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [editTime, setEditTime] = useState("12:00");
   const [editNotes, setEditNotes] = useState("");
+  const [editCurrency, setEditCurrency] = useState("");
+  const [editCurrencySymbol, setEditCurrencySymbol] = useState("");
   
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
@@ -83,6 +86,16 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
     setEditDate(expDate);
     setEditTime(format(expDate, "HH:mm"));
     setEditNotes(expense.notes || "");
+    setEditCurrency(expense.currency || defaultCurrency);
+    setEditCurrencySymbol(expense.currencySymbol || currencySymbol);
+  };
+
+  const handleEditCurrencyChange = (code: string) => {
+    const curr = CURRENCIES.find((c) => c.code === code);
+    if (curr) {
+      setEditCurrency(curr.code);
+      setEditCurrencySymbol(curr.symbol);
+    }
   };
 
   const handleEditSave = () => {
@@ -98,11 +111,13 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
       subcategory: editSubcategory || undefined,
       notes: editNotes.trim() || undefined,
       date: expenseDate,
+      currency: editCurrency,
+      currencySymbol: editCurrencySymbol,
     });
     
     toast({
       title: "Expense updated",
-      description: `${currencySymbol}${parseFloat(editAmount).toFixed(2)} in ${CATEGORIES.find(c => c.id === editCategory)?.label}`,
+      description: `${editCurrencySymbol}${parseFloat(editAmount).toFixed(2)} in ${CATEGORIES.find(c => c.id === editCategory)?.label}`,
     });
     
     setEditingExpense(null);
@@ -167,8 +182,6 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
     });
   }, [expenses, filter, sort, searchQuery, categoryFilter]);
 
-  const totalAmount = useMemo(() => filteredAndSortedExpenses.reduce((sum, e) => sum + e.amount, 0), [filteredAndSortedExpenses]);
-
   const editSubcategories = editCategory ? SUBCATEGORIES[editCategory] || [] : [];
 
   return (
@@ -180,7 +193,7 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
           </Button>
           <div>
             <h1 className="font-display font-bold text-2xl">Expenses</h1>
-            <p className="text-sm text-muted-foreground">{filteredAndSortedExpenses.length} transactions · {formatCurrency(totalAmount)}</p>
+            <p className="text-sm text-muted-foreground">{filteredAndSortedExpenses.length} transactions</p>
           </div>
         </div>
 
@@ -219,6 +232,7 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
               const category = CATEGORIES.find((c) => c.id === expense.category);
               const subcategoryLabel = expense.subcategory ? SUBCATEGORIES[expense.category]?.find((s) => s.id === expense.subcategory)?.label : null;
               const expenseDate = new Date(expense.date);
+              const expenseSymbol = expense.currencySymbol || currencySymbol;
               
               return (
                 <Card key={expense.id} className="p-4 rounded-2xl animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
@@ -233,7 +247,7 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
                       <p className="text-xs text-muted-foreground">{expenseDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <p className="font-semibold text-lg">-{formatCurrency(expense.amount)}</p>
+                      <p className="font-semibold text-lg">-{expenseSymbol}{expense.amount.toFixed(2)}</p>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => openEditModal(expense)}><Pencil className="w-4 h-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeletingExpense(expense)}><Trash2 className="w-4 h-4" /></Button>
@@ -259,9 +273,28 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
           <div className="space-y-4 pt-2">
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Amount</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">{currencySymbol}</span>
-                <Input type="text" inputMode="decimal" placeholder="0.00" value={editAmount} onChange={(e) => handleAmountChange(e.target.value)} className="pl-10 h-12 text-xl font-bold rounded-xl" />
+              <div className="flex gap-2">
+                <Select value={editCurrency} onValueChange={handleEditCurrencyChange}>
+                  <SelectTrigger className="w-[90px] rounded-xl h-12">
+                    <SelectValue>
+                      <span className="font-semibold">{editCurrency}</span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border max-h-[200px]">
+                    {CURRENCIES.map((curr) => (
+                      <SelectItem key={curr.code} value={curr.code}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold">{curr.symbol}</span>
+                          <span className="text-muted-foreground">{curr.code}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="relative flex-1">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">{editCurrencySymbol}</span>
+                  <Input type="text" inputMode="decimal" placeholder="0.00" value={editAmount} onChange={(e) => handleAmountChange(e.target.value)} className="pl-10 h-12 text-xl font-bold rounded-xl" />
+                </div>
               </div>
             </div>
             <div>
@@ -313,7 +346,7 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, onBack, onUpdat
         <AlertDialogContent className="max-w-[90%] rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Expense?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete the {deletingExpense && formatCurrency(deletingExpense.amount)} expense.</AlertDialogDescription>
+            <AlertDialogDescription>This will permanently delete the {deletingExpense && `${deletingExpense.currencySymbol || currencySymbol}${deletingExpense.amount.toFixed(2)}`} expense.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>

@@ -154,6 +154,21 @@ export const useSettings = () => {
     []
   );
 
+  const updateSubcategory = useCallback(
+    (parentCategory: Category, id: string, updates: Partial<CustomCategory>) => {
+      setSettings((prev) => ({
+        ...prev,
+        customSubcategories: {
+          ...prev.customSubcategories,
+          [parentCategory]: prev.customSubcategories[parentCategory].map(
+            (sub) => sub.id === id ? { ...sub, ...updates } : sub
+          ),
+        },
+      }));
+    },
+    []
+  );
+
   const hideCategory = useCallback((categoryId: Category) => {
     setSettings((prev) => ({
       ...prev,
@@ -179,6 +194,7 @@ export const useSettings = () => {
     removeCustomCategory,
     addCustomSubcategory,
     removeCustomSubcategory,
+    updateSubcategory,
     hideCategory,
     showCategory,
   };

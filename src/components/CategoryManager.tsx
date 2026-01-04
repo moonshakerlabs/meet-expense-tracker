@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Tags, Trash2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Plus, Tags, Trash2, Eye, EyeOff, Pencil } from "lucide-react";
 import { Category, CATEGORIES, CustomCategory } from "@/types/expense";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ interface CategoryManagerProps {
   onRemoveCategory: (id: string) => void;
   onAddSubcategory: (parentCategory: Category, subcategory: CustomCategory) => void;
   onRemoveSubcategory: (parentCategory: Category, id: string) => void;
+  onUpdateSubcategory: (parentCategory: Category, id: string, updates: Partial<CustomCategory>) => void;
   onHideCategory: (categoryId: Category) => void;
   onShowCategory: (categoryId: Category) => void;
   onBack: () => void;
@@ -43,17 +44,24 @@ const CategoryManager = ({
   onRemoveCategory,
   onAddSubcategory,
   onRemoveSubcategory,
+  onUpdateSubcategory,
   onHideCategory,
   onShowCategory,
   onBack,
 }: CategoryManagerProps) => {
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [showAddSubcategoryModal, setShowAddSubcategoryModal] = useState(false);
+  const [showEditSubcategoryModal, setShowEditSubcategoryModal] = useState(false);
   const [categoryLabel, setCategoryLabel] = useState("");
   const [categoryIcon, setCategoryIcon] = useState("📌");
   const [subcategoryLabel, setSubcategoryLabel] = useState("");
   const [subcategoryIcon, setSubcategoryIcon] = useState("📌");
   const [parentCategory, setParentCategory] = useState<Category>("misc");
+  
+  // Edit subcategory state
+  const [editingSubcategory, setEditingSubcategory] = useState<{ parentCategory: Category; subcategory: CustomCategory } | null>(null);
+  const [editSubcategoryLabel, setEditSubcategoryLabel] = useState("");
+  const [editSubcategoryIcon, setEditSubcategoryIcon] = useState("");
 
   const handleAddCategory = () => {
     if (!categoryLabel.trim()) {
@@ -92,6 +100,29 @@ const CategoryManager = ({
     setSubcategoryLabel("");
     setSubcategoryIcon("📌");
     setShowAddSubcategoryModal(false);
+  };
+
+  const openEditSubcategory = (parentCat: Category, sub: CustomCategory) => {
+    setEditingSubcategory({ parentCategory: parentCat, subcategory: sub });
+    setEditSubcategoryLabel(sub.label);
+    setEditSubcategoryIcon(sub.icon);
+    setShowEditSubcategoryModal(true);
+  };
+
+  const handleEditSubcategory = () => {
+    if (!editingSubcategory || !editSubcategoryLabel.trim()) {
+      toast({ title: "Error", description: "Please enter a subcategory name", variant: "destructive" });
+      return;
+    }
+
+    onUpdateSubcategory(editingSubcategory.parentCategory, editingSubcategory.subcategory.id, {
+      label: editSubcategoryLabel.trim(),
+      icon: editSubcategoryIcon,
+    });
+    
+    toast({ title: "Subcategory updated", description: `${editSubcategoryIcon} ${editSubcategoryLabel}` });
+    setEditingSubcategory(null);
+    setShowEditSubcategoryModal(false);
   };
 
   return (
@@ -223,14 +254,24 @@ const CategoryManager = ({
                           <span>{sub.icon}</span>
                           <span className="font-medium">{sub.label}</span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => onRemoveSubcategory(cat.id, sub.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-muted-foreground" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openEditSubcategory(cat.id, sub)}
+                          >
+                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => onRemoveSubcategory(cat.id, sub.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   ))}
@@ -349,6 +390,54 @@ const CategoryManager = ({
             </div>
             <Button className="w-full rounded-xl" onClick={handleAddSubcategory}>
               Add Subcategory
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Subcategory Modal */}
+      <Dialog open={showEditSubcategoryModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowEditSubcategoryModal(false);
+          setEditingSubcategory(null);
+        }
+      }}>
+        <DialogContent className="max-w-[90%] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Subcategory</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Subcategory Name
+              </label>
+              <Input
+                placeholder="e.g., Vet Visits"
+                value={editSubcategoryLabel}
+                onChange={(e) => setEditSubcategoryLabel(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Icon
+              </label>
+              <div className="grid grid-cols-8 gap-2">
+                {EMOJI_OPTIONS.map((emoji) => (
+                  <Button
+                    key={emoji}
+                    variant={editSubcategoryIcon === emoji ? "default" : "outline"}
+                    size="icon"
+                    className="h-10 w-10 text-xl"
+                    onClick={() => setEditSubcategoryIcon(emoji)}
+                  >
+                    {emoji}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <Button className="w-full rounded-xl" onClick={handleEditSubcategory}>
+              Save Changes
             </Button>
           </div>
         </DialogContent>
