@@ -10,7 +10,13 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
 
 interface DashboardProps {
   expenses: Expense[];
@@ -63,24 +69,46 @@ const Dashboard = ({
     [expenses, month, year]
   );
 
-  // Group expenses by currency
-  const currencyBreakdown = useMemo(() => {
-    const grouped: Record<string, { total: number; symbol: string; count: number }> = {};
+  // Group expenses by currency with category breakdown
+  const categoryDataByCurrency = useMemo(() => {
+    const result: Record<string, { 
+      currency: string; 
+      symbol: string; 
+      total: number;
+      count: number;
+      categories: Array<{ name: string; value: number; category: string }> 
+    }> = {};
     
     monthlyExpenses.forEach((e) => {
       const curr = e.currency || defaultCurrency;
       const symbol = e.currencySymbol || defaultCurrencySymbol;
-      if (!grouped[curr]) {
-        grouped[curr] = { total: 0, symbol, count: 0 };
+      
+      if (!result[curr]) {
+        result[curr] = { currency: curr, symbol, total: 0, count: 0, categories: [] };
       }
-      grouped[curr].total += e.amount;
-      grouped[curr].count += 1;
+      result[curr].total += e.amount;
+      result[curr].count += 1;
+      
+      // Aggregate by category within this currency
+      const existingCat = result[curr].categories.find(c => c.category === e.category);
+      if (existingCat) {
+        existingCat.value += e.amount;
+      } else {
+        result[curr].categories.push({
+          name: CATEGORIES.find((c) => c.id === e.category)?.label || e.category,
+          value: e.amount,
+          category: e.category,
+        });
+      }
     });
     
-    return grouped;
+    // Sort categories by value within each currency
+    Object.values(result).forEach(data => {
+      data.categories.sort((a, b) => b.value - a.value);
+    });
+    
+    return Object.values(result);
   }, [monthlyExpenses, defaultCurrency, defaultCurrencySymbol]);
-
-  const hasMultipleCurrencies = Object.keys(currencyBreakdown).length > 1;
 
   const todayTotal = useMemo(() => {
     const today = new Date();
@@ -96,19 +124,14 @@ const Dashboard = ({
       .reduce((sum, e) => sum + e.amount, 0);
   }, [expenses]);
 
-  const categoryData = useMemo(() => {
-    const totals: Record<string, number> = {};
-    monthlyExpenses.forEach((e) => {
-      totals[e.category] = (totals[e.category] || 0) + e.amount;
+  // Total categories used across all currencies
+  const totalCategoriesUsed = useMemo(() => {
+    const uniqueCategories = new Set<string>();
+    categoryDataByCurrency.forEach(data => {
+      data.categories.forEach(cat => uniqueCategories.add(cat.category));
     });
-    return Object.entries(totals)
-      .map(([category, value]) => ({
-        name: CATEGORIES.find((c) => c.id === category)?.label || category,
-        value,
-        category,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [monthlyExpenses]);
+    return uniqueCategories.size;
+  }, [categoryDataByCurrency]);
 
   const recentExpenses = useMemo(() => 
     [...monthlyExpenses]
@@ -121,7 +144,8 @@ const Dashboard = ({
   const isCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
   
   // Calculate savings using default currency total only
-  const defaultCurrencyTotal = currencyBreakdown[defaultCurrency]?.total || 0;
+  const defaultCurrencyData = categoryDataByCurrency.find(d => d.currency === defaultCurrency);
+  const defaultCurrencyTotal = defaultCurrencyData?.total || 0;
   const savings = monthlyIncome - defaultCurrencyTotal;
 
   return (
@@ -159,32 +183,36 @@ const Dashboard = ({
           </Button>
         </div>
 
-        {/* Main Stats Card - Multi-Currency */}
+        {/* Main Stats Card - Multi-Currency with Carousel */}
         <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-3xl mb-4">
           <p className="text-sm opacity-80 mb-1">Monthly Spending</p>
           
-          {hasMultipleCurrencies ? (
-            <>
-              <ScrollArea className="max-h-[120px] mb-3">
-                <div className="space-y-2">
-                  {Object.entries(currencyBreakdown).map(([curr, data]) => (
-                    <div key={curr} className="flex justify-between items-center">
-                      <span className="font-display font-bold text-2xl">
+          {categoryDataByCurrency.length > 1 ? (
+            <Carousel className="w-full mb-3">
+              <CarouselContent>
+                {categoryDataByCurrency.map((data) => (
+                  <CarouselItem key={data.currency}>
+                    <div className="text-center py-2">
+                      <h2 className="font-display font-bold text-4xl mb-1">
                         {data.symbol}{data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-sm opacity-70">
-                        {curr} · {data.count} txn
-                      </span>
+                      </h2>
+                      <p className="text-sm opacity-70">{data.currency} · {data.count} txn</p>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <div className="flex justify-center gap-2 mt-2">
+                <CarouselPrevious className="static translate-y-0 h-8 w-8 bg-primary-foreground/20 border-0 text-primary-foreground hover:bg-primary-foreground/30" />
+                <CarouselNext className="static translate-y-0 h-8 w-8 bg-primary-foreground/20 border-0 text-primary-foreground hover:bg-primary-foreground/30" />
+              </div>
+            </Carousel>
+          ) : categoryDataByCurrency.length === 1 ? (
+            <h2 className="font-display font-bold text-4xl mb-4">
+              {categoryDataByCurrency[0].symbol}{categoryDataByCurrency[0].total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </h2>
           ) : (
             <h2 className="font-display font-bold text-4xl mb-4">
-              {defaultCurrencyTotal > 0 
-                ? `${defaultCurrencySymbol}${defaultCurrencyTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : formatCurrency(0)}
+              {formatCurrency(0)}
             </h2>
           )}
           
@@ -245,7 +273,7 @@ const Dashboard = ({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Categories</p>
-                <p className="font-semibold">{categoryData.length} used</p>
+                <p className="font-semibold">{totalCategoriesUsed} used</p>
               </div>
             </div>
           </Card>
@@ -265,64 +293,89 @@ const Dashboard = ({
           </Card>
         </div>
 
-        {/* Category Breakdown */}
-        {categoryData.length > 0 && (
+        {/* Category Breakdown - Carousel per Currency */}
+        {categoryDataByCurrency.length > 0 && (
           <Card className="p-5 rounded-2xl mb-6">
             <h3 className="font-semibold mb-4">Spending by Category</h3>
-            <div className="flex items-center gap-4">
-              <div className="w-24 h-24">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={25}
-                      outerRadius={40}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={CATEGORY_COLORS[entry.category as Category] || CATEGORY_COLORS.misc}
-                          className="cursor-pointer"
-                          onClick={() => onViewCategory?.(entry.category as Category, selectedDate)}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex-1 space-y-2">
-                {categoryData.slice(0, 4).map((item) => (
-                  <div
-                    key={item.category}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 rounded-lg p-1 -ml-1 transition-colors"
-                    onClick={() => onViewCategory?.(item.category as Category, selectedDate)}
-                  >
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{
-                        backgroundColor: CATEGORY_COLORS[item.category as Category] || CATEGORY_COLORS.misc,
-                      }}
-                    />
-                    <span className="text-sm flex-1">{item.name}</span>
-                    <span className="text-sm font-medium">
-                      {formatCurrency(item.value)}
-                    </span>
-                  </div>
+            
+            <Carousel className="w-full">
+              <CarouselContent>
+                {categoryDataByCurrency.map((currencyData) => (
+                  <CarouselItem key={currencyData.currency}>
+                    {/* Currency label */}
+                    <p className="text-sm text-muted-foreground text-center mb-3">
+                      {currencyData.currency} ({currencyData.symbol})
+                    </p>
+                    
+                    <div className="flex items-center gap-4">
+                      {/* Donut chart for this currency */}
+                      <div className="w-24 h-24">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={currencyData.categories}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={25}
+                              outerRadius={40}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              {currencyData.categories.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={CATEGORY_COLORS[entry.category as Category] || CATEGORY_COLORS.misc}
+                                  className="cursor-pointer"
+                                  onClick={() => onViewCategory?.(entry.category as Category, selectedDate)}
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value: number) => `${currencyData.symbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      
+                      {/* Category list for this currency */}
+                      <div className="flex-1 space-y-2">
+                        {currencyData.categories.slice(0, 4).map((item) => (
+                          <div
+                            key={item.category}
+                            className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 rounded-lg p-1 -ml-1 transition-colors"
+                            onClick={() => onViewCategory?.(item.category as Category, selectedDate)}
+                          >
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                backgroundColor: CATEGORY_COLORS[item.category as Category] || CATEGORY_COLORS.misc,
+                              }}
+                            />
+                            <span className="text-sm flex-1">{item.name}</span>
+                            <span className="text-sm font-medium">
+                              {currencyData.symbol}{item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        ))}
+                        {currencyData.categories.length > 4 && (
+                          <p className="text-xs text-muted-foreground pl-5">
+                            +{currencyData.categories.length - 4} more categories
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CarouselItem>
                 ))}
-                {categoryData.length > 4 && (
-                  <p className="text-xs text-muted-foreground pl-5">
-                    +{categoryData.length - 4} more categories
-                  </p>
-                )}
-              </div>
-            </div>
+              </CarouselContent>
+              
+              {/* Only show navigation if multiple currencies */}
+              {categoryDataByCurrency.length > 1 && (
+                <div className="flex justify-center gap-2 mt-4">
+                  <CarouselPrevious className="static translate-y-0 h-8 w-8" />
+                  <CarouselNext className="static translate-y-0 h-8 w-8" />
+                </div>
+              )}
+            </Carousel>
           </Card>
         )}
 
