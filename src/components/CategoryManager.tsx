@@ -24,7 +24,7 @@ const EMOJI_OPTIONS = ["📌", "🎯", "⭐", "💎", "🔥", "🌟", "💫", "�
 
 interface CategoryManagerProps {
   customCategories: CustomCategory[];
-  customSubcategories: Record<Category, CustomCategory[]>;
+  customSubcategories: Record<string, CustomCategory[]>;
   hiddenCategories: Category[];
   onAddCategory: (category: CustomCategory) => void;
   onRemoveCategory: (id: string) => void;
@@ -56,12 +56,23 @@ const CategoryManager = ({
   const [categoryIcon, setCategoryIcon] = useState("📌");
   const [subcategoryLabel, setSubcategoryLabel] = useState("");
   const [subcategoryIcon, setSubcategoryIcon] = useState("📌");
-  const [parentCategory, setParentCategory] = useState<Category>("misc");
+  const [parentCategory, setParentCategory] = useState<string>("misc");
   
   // Edit subcategory state
-  const [editingSubcategory, setEditingSubcategory] = useState<{ parentCategory: Category; subcategory: CustomCategory } | null>(null);
+  const [editingSubcategory, setEditingSubcategory] = useState<{ parentCategory: string; subcategory: CustomCategory } | null>(null);
   const [editSubcategoryLabel, setEditSubcategoryLabel] = useState("");
   const [editSubcategoryIcon, setEditSubcategoryIcon] = useState("");
+
+  // Combine built-in and custom categories
+  const allCategories = [
+    ...CATEGORIES,
+    ...customCategories.map(cat => ({
+      id: cat.id,
+      label: cat.label,
+      icon: cat.icon,
+      color: "hsl(270, 50%, 50%)"
+    }))
+  ];
 
   const handleAddCategory = () => {
     if (!categoryLabel.trim()) {
@@ -92,17 +103,18 @@ const CategoryManager = ({
       id: `custom_sub_${Date.now()}`,
       label: subcategoryLabel.trim(),
       icon: subcategoryIcon,
-      parentCategory,
+      parentCategory: parentCategory as Category,
     };
 
-    onAddSubcategory(parentCategory, newSubcategory);
-    toast({ title: "Subcategory added", description: `${subcategoryIcon} ${subcategoryLabel} under ${CATEGORIES.find(c => c.id === parentCategory)?.label}` });
+    onAddSubcategory(parentCategory as Category, newSubcategory);
+    const parentLabel = allCategories.find(c => c.id === parentCategory)?.label || parentCategory;
+    toast({ title: "Subcategory added", description: `${subcategoryIcon} ${subcategoryLabel} under ${parentLabel}` });
     setSubcategoryLabel("");
     setSubcategoryIcon("📌");
     setShowAddSubcategoryModal(false);
   };
 
-  const openEditSubcategory = (parentCat: Category, sub: CustomCategory) => {
+  const openEditSubcategory = (parentCat: string, sub: CustomCategory) => {
     setEditingSubcategory({ parentCategory: parentCat, subcategory: sub });
     setEditSubcategoryLabel(sub.label);
     setEditSubcategoryIcon(sub.icon);
@@ -115,7 +127,7 @@ const CategoryManager = ({
       return;
     }
 
-    onUpdateSubcategory(editingSubcategory.parentCategory, editingSubcategory.subcategory.id, {
+    onUpdateSubcategory(editingSubcategory.parentCategory as Category, editingSubcategory.subcategory.id, {
       label: editSubcategoryLabel.trim(),
       icon: editSubcategoryIcon,
     });
@@ -237,7 +249,7 @@ const CategoryManager = ({
             </Button>
           </div>
 
-          {CATEGORIES.map((cat) => {
+          {allCategories.map((cat) => {
             const subs = customSubcategories[cat.id] || [];
             if (subs.length === 0) return null;
             return (
@@ -267,7 +279,7 @@ const CategoryManager = ({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => onRemoveSubcategory(cat.id, sub.id)}
+                            onClick={() => onRemoveSubcategory(cat.id as Category, sub.id)}
                           >
                             <Trash2 className="w-4 h-4 text-muted-foreground" />
                           </Button>
@@ -343,12 +355,12 @@ const CategoryManager = ({
               <label className="text-sm font-medium text-muted-foreground mb-2 block">
                 Parent Category
               </label>
-              <Select value={parentCategory} onValueChange={(v) => setParentCategory(v as Category)}>
+              <Select value={parentCategory} onValueChange={(v) => setParentCategory(v)}>
                 <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-background border border-border">
-                  {CATEGORIES.map((cat) => (
+                  {allCategories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       <span className="flex items-center gap-2">
                         <span>{cat.icon}</span>

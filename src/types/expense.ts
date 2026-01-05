@@ -78,7 +78,7 @@ export interface UserSettings {
   googleConnected: boolean;
   monthlyIncome?: number;
   customCategories: CustomCategory[];
-  customSubcategories: Record<Category, CustomCategory[]>;
+  customSubcategories: Record<string, CustomCategory[]>;
   hiddenCategories: Category[];
 }
 
