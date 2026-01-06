@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { UserSettings, CURRENCIES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen } from "lucide-react";
+import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense } from "@/types/expense";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +23,7 @@ import { exportToCSV, exportToJSON, exportToCSVFiltered, importFromCSV } from "@
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SettingsPanelProps {
   settings: UserSettings;
@@ -39,6 +40,8 @@ interface SettingsPanelProps {
 const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
+  const [showCountrySheet, setShowCountrySheet] = useState(false);
+  const [showLanguageSheet, setShowLanguageSheet] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [showTimelineSheet, setShowTimelineSheet] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
@@ -156,12 +159,36 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   };
 
   const currentCurrency = CURRENCIES.find((c) => c.code === settings.currency);
+  const currentCountry = COUNTRIES.find((c) => c.code === settings.country);
+  const currentLanguage = LANGUAGES.find((l) => l.code === settings.language);
+  const availableLanguages = currentCountry 
+    ? LANGUAGES.filter(lang => currentCountry.languages.includes(lang.code))
+    : LANGUAGES;
 
   const themes = [
     { id: "light" as const, icon: Sun, label: "Light", desc: "Clean & bright" },
     { id: "dark" as const, icon: Moon, label: "Dark", desc: "Elegant night mode" },
     { id: "system" as const, icon: Smartphone, label: "System", desc: "Match device" },
   ];
+
+  const handleCountryChange = (countryCode: string) => {
+    const country = COUNTRIES.find(c => c.code === countryCode);
+    if (country) {
+      const updates: Partial<UserSettings> = { country: countryCode };
+      // Pre-select currency based on country
+      const currencyExists = CURRENCIES.find(c => c.code === country.currency);
+      if (currencyExists) {
+        updates.currency = country.currency;
+        updates.currencySymbol = currencyExists.symbol;
+      }
+      // Set default language if current one is not available in new country
+      if (!country.languages.includes(settings.language)) {
+        updates.language = country.languages[0];
+      }
+      onUpdateSettings(updates);
+    }
+    setShowCountrySheet(false);
+  };
 
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
@@ -187,6 +214,47 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             Preferences
           </h3>
           <Card className="rounded-2xl divide-y divide-border">
+            {/* Country */}
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={() => setShowCountrySheet(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Country</p>
+                  <p className="text-sm text-muted-foreground">
+                    {currentCountry ? `${currentCountry.flag} ${currentCountry.name}` : "Select country"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            {/* Language (only show if country has multiple languages) */}
+            {availableLanguages.length > 1 && (
+              <button
+                className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                onClick={() => setShowLanguageSheet(true)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                    <Languages className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium">Language</p>
+                    <p className="text-sm text-muted-foreground">
+                      {currentLanguage?.name || "English"}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </button>
+            )}
+
+            {/* Currency */}
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
               onClick={() => setShowCurrencySheet(true)}
@@ -207,6 +275,7 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
 
+            {/* Theme */}
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
               onClick={() => setShowThemeSheet(true)}
@@ -506,7 +575,77 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
         </SheetContent>
       </Sheet>
 
-      {/* Date Range Export Sheet */}
+      {/* Country Sheet */}
+      <Sheet open={showCountrySheet} onOpenChange={setShowCountrySheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Select Country</SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="h-[50vh] pb-8">
+            <div className="space-y-2 pr-4">
+              {COUNTRIES.map((country) => (
+                <Card
+                  key={country.code}
+                  className={`p-3 cursor-pointer transition-all duration-200 ${
+                    settings.country === country.code
+                      ? "ring-2 ring-primary bg-primary/5"
+                      : "hover:bg-secondary"
+                  }`}
+                  onClick={() => handleCountryChange(country.code)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{country.flag}</span>
+                      <div>
+                        <p className="font-medium">{country.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {CURRENCIES.find(c => c.code === country.currency)?.name}
+                        </p>
+                      </div>
+                    </div>
+                    {settings.country === country.code && (
+                      <Check className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* Language Sheet */}
+      <Sheet open={showLanguageSheet} onOpenChange={setShowLanguageSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Select Language</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-2 pb-8">
+            {availableLanguages.map((lang) => (
+              <Card
+                key={lang.code}
+                className={`p-4 cursor-pointer transition-all duration-200 ${
+                  settings.language === lang.code
+                    ? "ring-2 ring-primary bg-primary/5"
+                    : "hover:bg-secondary"
+                }`}
+                onClick={() => {
+                  onUpdateSettings({ language: lang.code });
+                  setShowLanguageSheet(false);
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{lang.name}</p>
+                  {settings.language === lang.code && (
+                    <Check className="w-5 h-5 text-primary" />
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <Sheet open={showTimelineSheet} onOpenChange={(open) => {
         setShowTimelineSheet(open);
         if (!open) {

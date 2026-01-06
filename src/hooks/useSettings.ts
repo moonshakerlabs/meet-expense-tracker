@@ -25,6 +25,8 @@ const defaultSettings: UserSettings = {
     custom: [],
   },
   hiddenCategories: [],
+  country: "US",
+  language: "en",
 };
 
 export const useSettings = () => {

@@ -1,26 +1,40 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CURRENCIES, UserSettings } from "@/types/expense";
-import { Check, Sun, Moon, Smartphone, ChevronRight } from "lucide-react";
+import { CURRENCIES, COUNTRIES, LANGUAGES, UserSettings } from "@/types/expense";
+import { Check, Sun, Moon, Smartphone, ChevronRight, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface OnboardingProps {
   onComplete: (settings: Partial<UserSettings>) => void;
 }
 
-type Step = "welcome" | "google" | "currency" | "theme";
+type Step = "welcome" | "country" | "currency" | "theme";
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
   const [step, setStep] = useState<Step>("welcome");
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
   const [selectedTheme, setSelectedTheme] = useState<"light" | "dark" | "system">("system");
+  const [countrySearch, setCountrySearch] = useState("");
 
-  const handleGoogleConnect = () => {
-    // Placeholder for Google OAuth - will implement with actual auth later
-    setStep("currency");
+  const handleCountrySelect = (countryCode: string) => {
+    setSelectedCountry(countryCode);
+    const country = COUNTRIES.find(c => c.code === countryCode);
+    if (country) {
+      // Pre-select currency based on country
+      const currencyExists = CURRENCIES.find(c => c.code === country.currency);
+      if (currencyExists) {
+        setSelectedCurrency(country.currency);
+      }
+      // Set default language (first available, usually English)
+      setSelectedLanguage(country.languages[0]);
+    }
   };
 
-  const handleSkipGoogle = () => {
+  const handleCountryNext = () => {
     setStep("currency");
   };
 
@@ -31,6 +45,8 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   const handleComplete = () => {
     const currency = CURRENCIES.find((c) => c.code === selectedCurrency);
     onComplete({
+      country: selectedCountry,
+      language: selectedLanguage,
       currency: selectedCurrency,
       currencySymbol: currency?.symbol || "$",
       theme: selectedTheme,
@@ -38,11 +54,20 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     });
   };
 
+  const filteredCountries = COUNTRIES.filter(country => 
+    country.name.toLowerCase().includes(countrySearch.toLowerCase())
+  );
+
+  const selectedCountryData = COUNTRIES.find(c => c.code === selectedCountry);
+  const availableLanguages = selectedCountryData 
+    ? LANGUAGES.filter(lang => selectedCountryData.languages.includes(lang.code))
+    : [];
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 safe-top safe-bottom">
       {/* Progress indicators */}
       <div className="flex gap-2 mb-8">
-        {["welcome", "google", "currency", "theme"].map((s, i) => (
+        {["welcome", "country", "currency", "theme"].map((s, i) => (
           <div
             key={s}
             className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -66,7 +91,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
           <Button
             size="lg"
             className="w-full rounded-2xl h-14 text-lg font-semibold"
-            onClick={() => setStep("google")}
+            onClick={() => setStep("country")}
           >
             Get Started
             <ChevronRight className="ml-2 w-5 h-5" />
@@ -74,95 +99,125 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         </div>
       )}
 
-      {step === "google" && (
-        <div className="text-center animate-fade-in max-w-sm w-full">
-          <div className="w-20 h-20 rounded-3xl bg-secondary flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-          </div>
-          <h1 className="font-display font-bold text-2xl mb-3">
-            Connect Google
+      {step === "country" && (
+        <div className="animate-fade-in max-w-sm w-full">
+          <h1 className="font-display font-bold text-2xl mb-2 text-center">
+            Select Your Country
           </h1>
-          <p className="text-muted-foreground mb-8">
-            Sign in with Google to sync your expenses to Google Sheets automatically.
+          <p className="text-muted-foreground mb-4 text-center">
+            We'll set up your currency and language preferences.
           </p>
-          <div className="space-y-3">
-            <Button
-              size="lg"
-              className="w-full rounded-2xl h-14 text-lg font-semibold"
-              onClick={handleGoogleConnect}
-            >
-              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-              </svg>
-              Sign in with Google
-            </Button>
-            <Button
-              variant="ghost"
-              size="lg"
-              className="w-full rounded-2xl h-12 text-muted-foreground"
-              onClick={handleSkipGoogle}
-            >
-              Skip for now
-            </Button>
+          
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search countries..."
+              value={countrySearch}
+              onChange={(e) => setCountrySearch(e.target.value)}
+              className="pl-10 rounded-xl"
+            />
           </div>
+
+          {/* Country List */}
+          <ScrollArea className="h-[280px] mb-4">
+            <div className="space-y-2 pr-4">
+              {filteredCountries.map((country) => (
+                <Card
+                  key={country.code}
+                  className={`p-3 cursor-pointer transition-all duration-200 ${
+                    selectedCountry === country.code
+                      ? "ring-2 ring-primary bg-primary/5"
+                      : "hover:bg-secondary"
+                  }`}
+                  onClick={() => handleCountrySelect(country.code)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{country.flag}</span>
+                      <div>
+                        <p className="font-medium">{country.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {CURRENCIES.find(c => c.code === country.currency)?.name}
+                        </p>
+                      </div>
+                    </div>
+                    {selectedCountry === country.code && (
+                      <Check className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+
+          {/* Language Selection (show if country has multiple languages) */}
+          {selectedCountry && availableLanguages.length > 1 && (
+            <div className="mb-4">
+              <p className="text-sm font-medium text-muted-foreground mb-2">
+                Preferred Language
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {availableLanguages.map((lang) => (
+                  <Button
+                    key={lang.code}
+                    variant={selectedLanguage === lang.code ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-xl"
+                    onClick={() => setSelectedLanguage(lang.code)}
+                  >
+                    {lang.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Button
+            size="lg"
+            className="w-full rounded-2xl h-14 text-lg font-semibold"
+            onClick={handleCountryNext}
+            disabled={!selectedCountry}
+          >
+            Continue
+            <ChevronRight className="ml-2 w-5 h-5" />
+          </Button>
         </div>
       )}
 
       {step === "currency" && (
         <div className="animate-fade-in max-w-sm w-full">
           <h1 className="font-display font-bold text-2xl mb-2 text-center">
-            Select Currency
+            Confirm Currency
           </h1>
           <p className="text-muted-foreground mb-6 text-center">
-            Choose your preferred currency for tracking expenses.
+            We've pre-selected based on your country. Change if needed.
           </p>
-          <div className="grid grid-cols-2 gap-3 mb-8">
-            {CURRENCIES.map((currency) => (
-              <Card
-                key={currency.code}
-                className={`p-4 cursor-pointer transition-all duration-200 ${
-                  selectedCurrency === currency.code
-                    ? "ring-2 ring-primary bg-primary/5"
-                    : "hover:bg-secondary"
-                }`}
-                onClick={() => setSelectedCurrency(currency.code)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-lg">{currency.symbol}</p>
-                    <p className="text-sm text-muted-foreground">{currency.code}</p>
+          <ScrollArea className="h-[320px] mb-6">
+            <div className="grid grid-cols-2 gap-3 pr-4">
+              {CURRENCIES.map((currency) => (
+                <Card
+                  key={currency.code}
+                  className={`p-4 cursor-pointer transition-all duration-200 ${
+                    selectedCurrency === currency.code
+                      ? "ring-2 ring-primary bg-primary/5"
+                      : "hover:bg-secondary"
+                  }`}
+                  onClick={() => setSelectedCurrency(currency.code)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-lg">{currency.symbol}</p>
+                      <p className="text-sm text-muted-foreground">{currency.code}</p>
+                    </div>
+                    {selectedCurrency === currency.code && (
+                      <Check className="w-5 h-5 text-primary" />
+                    )}
                   </div>
-                  {selectedCurrency === currency.code && (
-                    <Check className="w-5 h-5 text-primary" />
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
           <Button
             size="lg"
             className="w-full rounded-2xl h-14 text-lg font-semibold"
