@@ -80,7 +80,41 @@ export interface UserSettings {
   customCategories: CustomCategory[];
   customSubcategories: Record<string, CustomCategory[]>;
   hiddenCategories: Category[];
+  country: string;
+  language: string;
 }
+
+export const COUNTRIES = [
+  // English-speaking countries
+  { code: "US", name: "United States", flag: "🇺🇸", currency: "USD", languages: ["en"] },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", currency: "GBP", languages: ["en"] },
+  { code: "AU", name: "Australia", flag: "🇦🇺", currency: "AUD", languages: ["en"] },
+  { code: "CA", name: "Canada", flag: "🇨🇦", currency: "CAD", languages: ["en"] },
+  { code: "NZ", name: "New Zealand", flag: "🇳🇿", currency: "NZD", languages: ["en"] },
+  { code: "IN", name: "India", flag: "🇮🇳", currency: "INR", languages: ["en"] },
+  
+  // Non-English speaking countries (English + regional)
+  { code: "RU", name: "Russia", flag: "🇷🇺", currency: "RUB", languages: ["en", "ru"] },
+  { code: "CN", name: "China", flag: "🇨🇳", currency: "CNY", languages: ["en", "zh"] },
+  { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR", languages: ["en", "de"] },
+  { code: "FR", name: "France", flag: "🇫🇷", currency: "EUR", languages: ["en", "fr"] },
+  { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR", languages: ["en", "nl"] },
+  { code: "IT", name: "Italy", flag: "🇮🇹", currency: "EUR", languages: ["en", "it"] },
+  { code: "CH", name: "Switzerland", flag: "🇨🇭", currency: "CHF", languages: ["en", "de", "fr", "it"] },
+  { code: "AT", name: "Austria", flag: "🇦🇹", currency: "EUR", languages: ["en", "de"] },
+  { code: "PL", name: "Poland", flag: "🇵🇱", currency: "PLN", languages: ["en", "pl"] },
+];
+
+export const LANGUAGES = [
+  { code: "en", name: "English" },
+  { code: "ru", name: "Russian (Русский)" },
+  { code: "zh", name: "Chinese (中文)" },
+  { code: "de", name: "German (Deutsch)" },
+  { code: "fr", name: "French (Français)" },
+  { code: "nl", name: "Dutch (Nederlands)" },
+  { code: "it", name: "Italian (Italiano)" },
+  { code: "pl", name: "Polish (Polski)" },
+];
 
 export const CATEGORIES: { id: Category; label: string; icon: string; color: string }[] = [
   { id: "food", label: "Food", icon: "🍔", color: "hsl(25, 95%, 53%)" },
@@ -192,6 +226,10 @@ export const CURRENCIES = [
   { code: "THB", symbol: "฿", name: "Thai Baht" },
   { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
   { code: "PHP", symbol: "₱", name: "Philippine Peso" },
+  { code: "NZD", symbol: "NZ$", name: "New Zealand Dollar" },
+  { code: "RUB", symbol: "₽", name: "Russian Ruble" },
+  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
+  { code: "PLN", symbol: "zł", name: "Polish Zloty" },
 ];
 
 export const CATEGORY_COLORS: Record<Category, string> = {
