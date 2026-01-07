@@ -27,11 +27,14 @@ const defaultSettings: UserSettings = {
   hiddenCategories: [],
   country: "US",
   language: "en",
+  pinEnabled: false,
+  pinHash: undefined,
 };
 
 export const useSettings = () => {
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -45,21 +48,24 @@ export const useSettings = () => {
           customCategories: parsed.customCategories || [],
           customSubcategories: { ...defaultSettings.customSubcategories, ...parsed.customSubcategories },
           hiddenCategories: parsed.hiddenCategories || [],
+          pinEnabled: parsed.pinEnabled || false,
+          pinHash: parsed.pinHash,
         });
       }
     } catch (error) {
       console.error("Error loading settings:", error);
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
-  // Save to localStorage whenever settings change
+  // Save to localStorage only after initial load is complete
   useEffect(() => {
-    if (!isLoading) {
+    if (hasLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     }
-  }, [settings, isLoading]);
+  }, [settings, hasLoaded]);
 
   // Apply theme
   useEffect(() => {
@@ -185,6 +191,29 @@ export const useSettings = () => {
     }));
   }, []);
 
+  const enablePin = useCallback((hashedPin: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      pinEnabled: true,
+      pinHash: hashedPin,
+    }));
+  }, []);
+
+  const disablePin = useCallback(() => {
+    setSettings((prev) => ({
+      ...prev,
+      pinEnabled: false,
+      pinHash: undefined,
+    }));
+  }, []);
+
+  const updatePin = useCallback((newHashedPin: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      pinHash: newHashedPin,
+    }));
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -199,5 +228,8 @@ export const useSettings = () => {
     updateSubcategory,
     hideCategory,
     showCategory,
+    enablePin,
+    disablePin,
+    updatePin,
   };
 };
