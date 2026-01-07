@@ -82,6 +82,8 @@ export interface UserSettings {
   hiddenCategories: Category[];
   country: string;
   language: string;
+  pinEnabled: boolean;
+  pinHash?: string;
 }
 
 export const COUNTRIES = [

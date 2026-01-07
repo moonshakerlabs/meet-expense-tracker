@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 
 interface SettingsPanelProps {
   settings: UserSettings;
@@ -35,9 +36,12 @@ interface SettingsPanelProps {
   onManageCategories?: () => void;
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
+  onEnablePin?: (hashedPin: string) => void;
+  onDisablePin?: () => void;
+  onChangePin?: () => void;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
@@ -188,6 +192,15 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
       onUpdateSettings(updates);
     }
     setShowCountrySheet(false);
+  };
+
+  const handlePinToggle = (enabled: boolean) => {
+    if (enabled) {
+      onChangePin?.();
+    } else {
+      onDisablePin?.();
+      toast.success("PIN protection disabled");
+    }
   };
 
   return (
@@ -448,6 +461,52 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
+          </Card>
+        </div>
+
+        {/* Security */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Security
+          </h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-amber-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">PIN Protection</p>
+                  <p className="text-sm text-muted-foreground">
+                    Protect app with 6-digit PIN
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.pinEnabled}
+                onCheckedChange={handlePinToggle}
+              />
+            </div>
+
+            {settings.pinEnabled && (
+              <button
+                className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                onClick={onChangePin}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                    <Key className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium">Change PIN</p>
+                    <p className="text-sm text-muted-foreground">
+                      Update your security PIN
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </button>
+            )}
           </Card>
         </div>
 

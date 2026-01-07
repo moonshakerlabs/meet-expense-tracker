@@ -8,6 +8,7 @@ const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9
 export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Load expenses from localStorage on mount
   useEffect(() => {
@@ -29,15 +30,16 @@ export const useExpenses = () => {
       console.error("Error loading expenses:", error);
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
-  // Save to localStorage whenever expenses change
+  // Save to localStorage only after initial load is complete
   useEffect(() => {
-    if (!isLoading) {
+    if (hasLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
     }
-  }, [expenses, isLoading]);
+  }, [expenses, hasLoaded]);
 
   const addExpense = useCallback(
     (data: {
