@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Income, IncomeSource } from "@/types/expense";
+import { Income, IncomeSourceId } from "@/types/expense";
 
 const STORAGE_KEY = "meet_income";
 
@@ -82,7 +82,7 @@ export const useIncome = () => {
   const addIncome = useCallback(
     (data: {
       amount: number;
-      source: IncomeSource;
+      source: IncomeSourceId;
       date: Date;
       notes?: string;
       isRecurring: boolean;
@@ -143,14 +143,11 @@ export const useIncome = () => {
         return incomeDate.getMonth() === month && incomeDate.getFullYear() === year;
       });
 
-      const totals: Record<IncomeSource, number> = {
-        salary: 0,
-        rent: 0,
-        other: 0,
-      };
+      // Dynamic aggregation - don't rely on fixed source types
+      const totals: Record<string, number> = {};
 
       monthlyIncomes.forEach((i) => {
-        totals[i.source] += i.amount;
+        totals[i.source] = (totals[i.source] || 0) + i.amount;
       });
 
       return totals;

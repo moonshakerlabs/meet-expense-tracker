@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { UserSettings, CustomCategory, Category } from "@/types/expense";
+import { UserSettings, CustomCategory, Category, CustomIncomeSource } from "@/types/expense";
 
 const STORAGE_KEY = "meet_settings";
 
@@ -8,7 +8,6 @@ const defaultSettings: UserSettings = {
   currencySymbol: "$",
   theme: "system",
   hasCompletedOnboarding: false,
-  googleConnected: false,
   customCategories: [],
   customSubcategories: {
     food: [],
@@ -29,6 +28,7 @@ const defaultSettings: UserSettings = {
   language: "en",
   pinEnabled: false,
   pinHash: undefined,
+  customIncomeSources: [],
 };
 
 export const useSettings = () => {
@@ -42,14 +42,19 @@ export const useSettings = () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        
+        // Migration: if pinHash exists, ensure pinEnabled is true
+        const pinEnabled = parsed.pinHash ? true : (parsed.pinEnabled || false);
+        
         setSettings({ 
           ...defaultSettings, 
           ...parsed,
           customCategories: parsed.customCategories || [],
           customSubcategories: { ...defaultSettings.customSubcategories, ...parsed.customSubcategories },
           hiddenCategories: parsed.hiddenCategories || [],
-          pinEnabled: parsed.pinEnabled || false,
+          pinEnabled,
           pinHash: parsed.pinHash,
+          customIncomeSources: parsed.customIncomeSources || [],
         });
       }
     } catch (error) {
@@ -132,7 +137,7 @@ export const useSettings = () => {
   }, []);
 
   const addCustomSubcategory = useCallback(
-    (parentCategory: Category, subcategory: CustomCategory) => {
+    (parentCategory: string, subcategory: CustomCategory) => {
       setSettings((prev) => ({
         ...prev,
         customSubcategories: {
@@ -148,12 +153,12 @@ export const useSettings = () => {
   );
 
   const removeCustomSubcategory = useCallback(
-    (parentCategory: Category, subcategoryId: string) => {
+    (parentCategory: string, subcategoryId: string) => {
       setSettings((prev) => ({
         ...prev,
         customSubcategories: {
           ...prev.customSubcategories,
-          [parentCategory]: prev.customSubcategories[parentCategory].filter(
+          [parentCategory]: (prev.customSubcategories[parentCategory] || []).filter(
             (s) => s.id !== subcategoryId
           ),
         },
@@ -163,12 +168,12 @@ export const useSettings = () => {
   );
 
   const updateSubcategory = useCallback(
-    (parentCategory: Category, id: string, updates: Partial<CustomCategory>) => {
+    (parentCategory: string, id: string, updates: Partial<CustomCategory>) => {
       setSettings((prev) => ({
         ...prev,
         customSubcategories: {
           ...prev.customSubcategories,
-          [parentCategory]: prev.customSubcategories[parentCategory].map(
+          [parentCategory]: (prev.customSubcategories[parentCategory] || []).map(
             (sub) => sub.id === id ? { ...sub, ...updates } : sub
           ),
         },
@@ -214,6 +219,30 @@ export const useSettings = () => {
     }));
   }, []);
 
+  // Income source management
+  const addIncomeSource = useCallback((source: CustomIncomeSource) => {
+    setSettings((prev) => ({
+      ...prev,
+      customIncomeSources: [...prev.customIncomeSources, source],
+    }));
+  }, []);
+
+  const removeIncomeSource = useCallback((sourceId: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      customIncomeSources: prev.customIncomeSources.filter((s) => s.id !== sourceId),
+    }));
+  }, []);
+
+  const updateIncomeSource = useCallback((sourceId: string, updates: Partial<CustomIncomeSource>) => {
+    setSettings((prev) => ({
+      ...prev,
+      customIncomeSources: prev.customIncomeSources.map((s) =>
+        s.id === sourceId ? { ...s, ...updates } : s
+      ),
+    }));
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -231,5 +260,8 @@ export const useSettings = () => {
     enablePin,
     disablePin,
     updatePin,
+    addIncomeSource,
+    removeIncomeSource,
+    updateIncomeSource,
   };
 };

@@ -12,6 +12,9 @@ export type Category =
   | "investments"
   | "custom";
 
+// CategoryId allows both built-in and custom category IDs
+export type CategoryId = Category | string;
+
 export type Subcategory = string;
 
 export interface Expense {
@@ -19,7 +22,7 @@ export interface Expense {
   amount: number;
   currency: string;
   currencySymbol: string;
-  category: Category;
+  category: CategoryId;
   subcategory?: Subcategory;
   notes?: string;
   date: Date;
@@ -31,7 +34,7 @@ export interface Expense {
 export interface Income {
   id: string;
   amount: number;
-  source: IncomeSource;
+  source: IncomeSourceId;
   date: Date;
   notes?: string;
   isRecurring: boolean;
@@ -42,7 +45,10 @@ export interface Income {
   createdAt: Date;
 }
 
+// Built-in income source types
 export type IncomeSource = "salary" | "rent" | "other";
+// Allow custom income sources as strings
+export type IncomeSourceId = IncomeSource | string;
 
 export type FrequencyUnit = "days" | "months" | "years";
 
@@ -50,7 +56,7 @@ export interface RecurringExpense {
   id: string;
   name: string;
   amount: number;
-  category: Category;
+  category: CategoryId;
   subcategory?: Subcategory;
   frequencyValue: number; // e.g., 1, 2, 3, 6, 12
   frequencyUnit: FrequencyUnit; // "days" | "months" | "years"
@@ -68,6 +74,13 @@ export interface CustomCategory {
   label: string;
   icon: string;
   parentCategory?: Category; // If this is a custom subcategory
+  color?: string; // Optional color for custom categories
+}
+
+export interface CustomIncomeSource {
+  id: string;
+  label: string;
+  icon: string;
 }
 
 export interface UserSettings {
@@ -75,7 +88,6 @@ export interface UserSettings {
   currencySymbol: string;
   theme: "light" | "dark" | "system";
   hasCompletedOnboarding: boolean;
-  googleConnected: boolean;
   monthlyIncome?: number;
   customCategories: CustomCategory[];
   customSubcategories: Record<string, CustomCategory[]>;
@@ -84,6 +96,7 @@ export interface UserSettings {
   language: string;
   pinEnabled: boolean;
   pinHash?: string;
+  customIncomeSources: CustomIncomeSource[];
 }
 
 export const COUNTRIES = [
