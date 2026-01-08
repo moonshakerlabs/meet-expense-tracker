@@ -1,5 +1,6 @@
-import { Expense, CATEGORIES, Category } from "@/types/expense";
+import { Expense, CATEGORIES, Category, CategoryId } from "@/types/expense";
 import { format } from "date-fns";
+import { exportFile, ExportData } from "./fileExport";
 
 const getCategoryLabel = (category: string): string => {
   const cat = CATEGORIES.find((c) => c.id === category);
@@ -14,32 +15,68 @@ const formatDateTime = (date: Date): string => {
   return format(new Date(date), "yyyy-MM-dd HH:mm");
 };
 
-export const exportToCSV = (
+// Build CSV content without triggering download
+export const buildCSV = (
   expenses: Expense[],
   currency: string
-): void => {
-  if (expenses.length === 0) return;
-
+): ExportData => {
   const headers = ["Date", "Amount", "Currency", "Category", "Notes", "Created At"];
   const rows = expenses.map((exp) => [
     formatDate(exp.date),
     exp.amount.toFixed(2),
-    currency,
+    exp.currency || currency,
     getCategoryLabel(exp.category),
     `"${(exp.notes || "").replace(/"/g, '""')}"`,
     formatDateTime(exp.createdAt),
   ]);
 
   const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
-  downloadFile(csvContent, `meet-expenses-${formatDate(new Date())}.csv`, "text/csv;charset=utf-8");
+  
+  return {
+    filename: `meet-expenses-${formatDate(new Date())}.csv`,
+    content: csvContent,
+    mimeType: "text/csv;charset=utf-8",
+  };
 };
 
-export const exportToCSVFiltered = (
+// Build JSON content without triggering download
+export const buildJSON = (
+  expenses: Expense[],
+  currencySymbol: string,
+  currency: string
+): ExportData => {
+  const exportData = {
+    exportDate: formatDateTime(new Date()),
+    currency,
+    currencySymbol,
+    totalExpenses: expenses.length,
+    totalAmount: expenses.reduce((sum, exp) => sum + exp.amount, 0),
+    expenses: expenses.map((exp) => ({
+      date: formatDate(exp.date),
+      amount: exp.amount,
+      currency: exp.currency || currency,
+      category: getCategoryLabel(exp.category),
+      notes: exp.notes || "",
+      createdAt: formatDateTime(exp.createdAt),
+    })),
+  };
+
+  const jsonContent = JSON.stringify(exportData, null, 2);
+  
+  return {
+    filename: `meet-expenses-${formatDate(new Date())}.json`,
+    content: jsonContent,
+    mimeType: "application/json",
+  };
+};
+
+// Build filtered CSV content
+export const buildCSVFiltered = (
   expenses: Expense[],
   currency: string,
   startDate?: Date,
   endDate?: Date
-): void => {
+): ExportData | null => {
   let filtered = expenses;
   
   if (startDate) {
@@ -51,13 +88,13 @@ export const exportToCSVFiltered = (
     filtered = filtered.filter((exp) => new Date(exp.date) <= endOfDay);
   }
 
-  if (filtered.length === 0) return;
+  if (filtered.length === 0) return null;
 
   const headers = ["Date", "Amount", "Currency", "Category", "Notes", "Created At"];
   const rows = filtered.map((exp) => [
     formatDate(exp.date),
     exp.amount.toFixed(2),
-    currency,
+    exp.currency || currency,
     getCategoryLabel(exp.category),
     `"${(exp.notes || "").replace(/"/g, '""')}"`,
     formatDateTime(exp.createdAt),
@@ -74,49 +111,46 @@ export const exportToCSVFiltered = (
     ? `${formatDate(startDate)}_to_${formatDate(endDate)}`
     : formatDate(new Date());
   
-  downloadFile(csvContent, `meet-expenses-${dateRange}.csv`, "text/csv;charset=utf-8");
+  return {
+    filename: `meet-expenses-${dateRange}.csv`,
+    content: csvContent,
+    mimeType: "text/csv;charset=utf-8",
+  };
 };
 
-export const exportToJSON = (
+// Export functions that use the new file export system
+export const exportToCSV = async (
+  expenses: Expense[],
+  currency: string
+): Promise<boolean> => {
+  if (expenses.length === 0) return false;
+  const data = buildCSV(expenses, currency);
+  return exportFile(data);
+};
+
+export const exportToJSON = async (
   expenses: Expense[],
   currencySymbol: string,
   currency: string
-): void => {
-  if (expenses.length === 0) return;
-
-  const exportData = {
-    exportDate: formatDateTime(new Date()),
-    currency,
-    currencySymbol,
-    totalExpenses: expenses.length,
-    totalAmount: expenses.reduce((sum, exp) => sum + exp.amount, 0),
-    expenses: expenses.map((exp) => ({
-      date: formatDate(exp.date),
-      amount: exp.amount,
-      category: getCategoryLabel(exp.category),
-      notes: exp.notes || "",
-      createdAt: formatDateTime(exp.createdAt),
-    })),
-  };
-
-  const jsonContent = JSON.stringify(exportData, null, 2);
-  downloadFile(jsonContent, `meet-expenses-${formatDate(new Date())}.json`, "application/json");
+): Promise<boolean> => {
+  if (expenses.length === 0) return false;
+  const data = buildJSON(expenses, currencySymbol, currency);
+  return exportFile(data);
 };
 
-const downloadFile = (content: string, filename: string, mimeType: string): void => {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+export const exportToCSVFiltered = async (
+  expenses: Expense[],
+  currency: string,
+  startDate?: Date,
+  endDate?: Date
+): Promise<boolean> => {
+  const data = buildCSVFiltered(expenses, currency, startDate, endDate);
+  if (!data) return false;
+  return exportFile(data);
 };
 
 // Map category labels back to IDs
-const getCategoryId = (label: string): Category => {
+const getCategoryId = (label: string): CategoryId => {
   const cat = CATEGORIES.find((c) => c.label.toLowerCase() === label.toLowerCase());
   return cat?.id || "misc";
 };
@@ -128,7 +162,11 @@ export interface ImportResult {
   errors: string[];
 }
 
-export const importFromCSV = (fileContent: string): { expenses: Omit<Expense, 'id' | 'syncStatus'>[]; result: ImportResult } => {
+export const importFromCSV = (
+  fileContent: string,
+  defaultCurrency: string = "USD",
+  defaultCurrencySymbol: string = "$"
+): { expenses: Omit<Expense, 'id' | 'syncStatus'>[]; result: ImportResult } => {
   const result: ImportResult = {
     success: false,
     imported: 0,
@@ -150,6 +188,7 @@ export const importFromCSV = (fileContent: string): { expenses: Omit<Expense, 'i
     const header = lines[0].split(',').map(h => h.trim().toLowerCase());
     const dateIdx = header.findIndex(h => h === 'date');
     const amountIdx = header.findIndex(h => h === 'amount');
+    const currencyIdx = header.findIndex(h => h === 'currency');
     const categoryIdx = header.findIndex(h => h === 'category');
     const notesIdx = header.findIndex(h => h === 'notes');
     const createdAtIdx = header.findIndex(h => h.includes('created'));
@@ -170,6 +209,7 @@ export const importFromCSV = (fileContent: string): { expenses: Omit<Expense, 'i
         
         const dateStr = values[dateIdx]?.trim();
         const amountStr = values[amountIdx]?.trim();
+        const currencyStr = currencyIdx !== -1 ? values[currencyIdx]?.trim() : undefined;
         const categoryStr = values[categoryIdx]?.trim() || "Misc";
         const notesStr = values[notesIdx]?.trim().replace(/^"|"$/g, '') || "";
         const createdAtStr = values[createdAtIdx]?.trim();
@@ -201,8 +241,9 @@ export const importFromCSV = (fileContent: string): { expenses: Omit<Expense, 'i
           notes: notesStr,
           date,
           createdAt: isNaN(createdAt.getTime()) ? new Date() : createdAt,
-          currency: "USD", // Default for imported expenses
-          currencySymbol: "$",
+          // Use CSV currency if present, otherwise use user's default currency
+          currency: currencyStr || defaultCurrency,
+          currencySymbol: defaultCurrencySymbol,
         });
 
         result.imported++;

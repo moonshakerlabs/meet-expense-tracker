@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Expense, Category, Subcategory, CATEGORIES } from "@/types/expense";
+import { Expense, Category, Subcategory, CategoryId } from "@/types/expense";
 
 const STORAGE_KEY = "meet_expenses";
 
@@ -20,9 +20,8 @@ export const useExpenses = () => {
           ...e,
           date: new Date(e.date),
           createdAt: new Date(e.createdAt),
-          // Backward compatibility: default to USD if no currency
-          currency: e.currency || "USD",
-          currencySymbol: e.currencySymbol || "$",
+          // Don't default currency here - we'll handle migration separately
+          // to avoid overwriting with USD
         }));
         setExpenses(expensesWithDates);
       }
@@ -41,10 +40,24 @@ export const useExpenses = () => {
     }
   }, [expenses, hasLoaded]);
 
+  // Migrate expenses with missing currency to use provided default
+  const migrateExpensesCurrency = useCallback((defaultCurrency: string, defaultCurrencySymbol: string) => {
+    setExpenses((prev) => {
+      const needsMigration = prev.some((e) => !e.currency || !e.currencySymbol);
+      if (!needsMigration) return prev;
+      
+      return prev.map((e) => ({
+        ...e,
+        currency: e.currency || defaultCurrency,
+        currencySymbol: e.currencySymbol || defaultCurrencySymbol,
+      }));
+    });
+  }, []);
+
   const addExpense = useCallback(
     (data: {
       amount: number;
-      category: Category;
+      category: CategoryId;
       subcategory?: Subcategory;
       notes?: string;
       date: Date;
@@ -168,7 +181,9 @@ export const useExpenses = () => {
       };
 
       monthlyExpenses.forEach((e) => {
-        totals[e.category] += e.amount;
+        if (e.category in totals) {
+          totals[e.category as Category] += e.amount;
+        }
       });
 
       return totals;
@@ -177,7 +192,7 @@ export const useExpenses = () => {
   );
 
   const getExpensesByCategory = useCallback(
-    (category: Category, date: Date = new Date()) => {
+    (category: CategoryId, date: Date = new Date()) => {
       const month = date.getMonth();
       const year = date.getFullYear();
       return expenses.filter((e) => {
@@ -193,7 +208,7 @@ export const useExpenses = () => {
   );
 
   const getSubcategoryTotals = useCallback(
-    (category: Category, date: Date = new Date()) => {
+    (category: CategoryId, date: Date = new Date()) => {
       const categoryExpenses = getExpensesByCategory(category, date);
       const totals: Record<string, number> = {};
 
@@ -224,11 +239,13 @@ export const useExpenses = () => {
   return {
     expenses,
     isLoading,
+    hasLoaded,
     addExpense,
     updateExpense,
     deleteExpense,
     clearAllExpenses,
     importExpenses,
+    migrateExpensesCurrency,
     getMonthlyTotal,
     getMonthlyTransactionCount,
     getTodayTotal,
