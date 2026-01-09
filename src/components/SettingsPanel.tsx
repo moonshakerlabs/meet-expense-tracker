@@ -39,9 +39,10 @@ interface SettingsPanelProps {
   onEnablePin?: (hashedPin: string) => void;
   onDisablePin?: () => void;
   onChangePin?: () => void;
+  onViewPrivacy?: () => void;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
