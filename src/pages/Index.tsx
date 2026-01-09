@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SplashScreen from "@/components/SplashScreen";
 import Onboarding from "@/components/Onboarding";
 import Dashboard from "@/components/Dashboard";
@@ -12,26 +12,35 @@ import CategoryManager from "@/components/CategoryManager";
 import InstallPrompt from "@/components/InstallPrompt";
 import PinLockScreen from "@/components/PinLockScreen";
 import PinSetup from "@/components/PinSetup";
+import Privacy from "@/pages/Privacy";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
 import { useIncome } from "@/hooks/useIncome";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { UserSettings, Category } from "@/types/expense";
 
-type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup";
+type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dashboardDate, setDashboardDate] = useState(new Date());
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
 
-  const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses } = useExpenses();
+  const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
   const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
+
+  // Migrate expenses with missing currency once both are loaded
+  useEffect(() => {
+    if (expensesLoaded && !isLoading && settings.currency && settings.currencySymbol) {
+      migrateExpensesCurrency(settings.currency, settings.currencySymbol);
+    }
+  }, [expensesLoaded, isLoading, settings.currency, settings.currencySymbol, migrateExpensesCurrency]);
 
   const handleClearAllData = () => {
     clearAllExpenses();
@@ -42,6 +51,11 @@ const Index = () => {
     setSelectedCategory(category);
     setSelectedDate(date);
     setCurrentView("category-detail");
+  };
+
+  const handleViewExpenses = (date: Date) => {
+    setDashboardDate(date);
+    setCurrentView("expense-list");
   };
 
   const handlePinSetupComplete = (hashedPin: string) => {
@@ -94,7 +108,7 @@ const Index = () => {
           defaultCurrency={settings.currency}
           defaultCurrencySymbol={settings.currencySymbol}
           onAddExpense={() => setCurrentView("add-expense")}
-          onViewExpenses={() => setCurrentView("expense-list")}
+          onViewExpenses={handleViewExpenses}
           onOpenSettings={() => setCurrentView("settings")}
           onViewCategory={handleViewCategory}
           onViewIncome={() => setCurrentView("income")}
@@ -128,6 +142,7 @@ const Index = () => {
           onEnablePin={enablePin}
           onDisablePin={disablePin}
           onChangePin={handleChangePin}
+          onViewPrivacy={() => setCurrentView("privacy")}
         />
       )}
 
@@ -138,6 +153,7 @@ const Index = () => {
           currencySymbol={settings.currencySymbol}
           defaultCurrency={settings.currency}
           onBack={() => setCurrentView("dashboard")}
+          selectedDate={dashboardDate}
           onUpdateExpense={updateExpense}
           onDeleteExpense={deleteExpense}
         />
@@ -208,6 +224,10 @@ const Index = () => {
           }}
           isChangingPin={isChangingPin}
         />
+      )}
+
+      {currentView === "privacy" && (
+        <Privacy onBack={() => setCurrentView("settings")} />
       )}
 
       <InstallPrompt />

@@ -33,11 +33,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check } from "lucide-react";
-import { Expense, CATEGORIES, Category, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES } from "@/types/expense";
+import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category } from "@/types/expense";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getCategoryMeta } from "@/lib/categoryUtils";
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -47,6 +48,8 @@ interface ExpenseListProps {
   onBack: () => void;
   onUpdateExpense: (id: string, data: Partial<Expense>) => void;
   onDeleteExpense: (id: string) => void;
+  selectedDate?: Date;
+  customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
 }
 
 type FilterType = "today" | "week" | "month" | "all";
@@ -59,15 +62,25 @@ const FILTERS: { id: FilterType; label: string }[] = [
   { id: "month", label: "Month" },
 ];
 
-const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency, onBack, onUpdateExpense, onDeleteExpense }: ExpenseListProps) => {
+const ExpenseList = ({ 
+  expenses, 
+  formatCurrency, 
+  currencySymbol, 
+  defaultCurrency, 
+  onBack, 
+  onUpdateExpense, 
+  onDeleteExpense,
+  selectedDate,
+  customCategories = []
+}: ExpenseListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortType>("newest");
-  const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
   
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
-  const [editCategory, setEditCategory] = useState<Category | null>(null);
+  const [editCategory, setEditCategory] = useState<CategoryId | null>(null);
   const [editSubcategory, setEditSubcategory] = useState<string>("");
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [editTime, setEditTime] = useState("12:00");
@@ -76,6 +89,11 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
   const [editCurrencySymbol, setEditCurrencySymbol] = useState("");
   
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
+
+  // The context date for filtering - defaults to current date if not provided
+  const contextDate = selectedDate || new Date();
+  const contextMonth = contextDate.getMonth();
+  const contextYear = contextDate.getFullYear();
 
   const openEditModal = (expense: Expense) => {
     setEditingExpense(expense);
@@ -115,9 +133,10 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
       currencySymbol: editCurrencySymbol,
     });
     
+    const categoryMeta = getCategoryMeta(editCategory, customCategories);
     toast({
       title: "Expense updated",
-      description: `${editCurrencySymbol}${parseFloat(editAmount).toFixed(2)} in ${CATEGORIES.find(c => c.id === editCategory)?.label}`,
+      description: `${editCurrencySymbol}${parseFloat(editAmount).toFixed(2)} in ${categoryMeta.label}`,
     });
     
     setEditingExpense(null);
@@ -157,16 +176,18 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
           return expenseDate >= weekAgo;
         case "month":
           return expenseDate.getMonth() === now.getMonth() && expenseDate.getFullYear() === now.getFullYear();
+        case "all":
         default:
-          return true;
+          // Show expenses for the selected month only (not all time)
+          return expenseDate.getMonth() === contextMonth && expenseDate.getFullYear() === contextYear;
       }
     });
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((expense) => {
-        const category = CATEGORIES.find((c) => c.id === expense.category);
-        const categoryLabel = category?.label.toLowerCase() || "";
+        const categoryMeta = getCategoryMeta(expense.category, customCategories);
+        const categoryLabel = categoryMeta.label.toLowerCase();
         const notes = expense.notes?.toLowerCase() || "";
         return categoryLabel.includes(query) || notes.includes(query);
       });
@@ -180,22 +201,73 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
         default: return 0;
       }
     });
-  }, [expenses, filter, sort, searchQuery, categoryFilter]);
+  }, [expenses, filter, sort, searchQuery, categoryFilter, contextMonth, contextYear, customCategories]);
 
-  const editSubcategories = editCategory ? SUBCATEGORIES[editCategory] || [] : [];
+  // Calculate totals by currency for filtered expenses
+  const totalsByCurrency = useMemo(() => {
+    const totals: Record<string, { amount: number; symbol: string; count: number }> = {};
+    filteredAndSortedExpenses.forEach((expense) => {
+      const curr = expense.currency || defaultCurrency;
+      const symbol = expense.currencySymbol || currencySymbol;
+      if (!totals[curr]) {
+        totals[curr] = { amount: 0, symbol, count: 0 };
+      }
+      totals[curr].amount += expense.amount;
+      totals[curr].count += 1;
+    });
+    return Object.entries(totals);
+  }, [filteredAndSortedExpenses, defaultCurrency, currencySymbol]);
+
+  // All categories for the dropdown (built-in + custom)
+  const allCategories = useMemo(() => {
+    const builtIn = CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: c.icon }));
+    const custom = customCategories.map(c => ({ id: c.id, label: c.label, icon: c.icon }));
+    return [...builtIn, ...custom];
+  }, [customCategories]);
+
+  const editSubcategories = editCategory && typeof editCategory === 'string' 
+    ? (SUBCATEGORIES[editCategory as Category] || []) 
+    : [];
+
+  const monthLabel = new Date(contextYear, contextMonth).toLocaleString("default", { month: "long", year: "numeric" });
 
   return (
     <div className="min-h-screen bg-background pb-8 safe-top">
       <div className="px-5 pt-6 pb-4">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <Button variant="ghost" size="icon" className="rounded-xl" onClick={onBack}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
             <h1 className="font-display font-bold text-2xl">Expenses</h1>
-            <p className="text-sm text-muted-foreground">{filteredAndSortedExpenses.length} transactions</p>
+            <p className="text-sm text-muted-foreground">{monthLabel}</p>
           </div>
         </div>
+
+        {/* Summary Totals */}
+        {totalsByCurrency.length > 0 && (
+          <Card className="p-4 rounded-2xl mb-4 bg-gradient-to-br from-primary/10 to-primary/5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  {filter === "all" ? "Month Total" : filter === "today" ? "Today" : filter === "week" ? "This Week" : "This Month"}
+                </p>
+                <div className="space-y-1">
+                  {totalsByCurrency.map(([currency, data]) => (
+                    <p key={currency} className="font-bold text-xl">
+                      {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {totalsByCurrency.length > 1 && <span className="text-sm font-normal text-muted-foreground ml-1">({currency})</span>}
+                    </p>
+                  ))}
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Transactions</p>
+                <p className="font-semibold text-lg">{filteredAndSortedExpenses.length}</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -209,11 +281,11 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
         </div>
 
         <div className="flex items-center gap-2 mb-4">
-          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as Category | "all")}>
+          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryId | "all")}>
             <SelectTrigger className="w-[140px] rounded-xl border-0 bg-secondary/50"><SelectValue placeholder="Category" /></SelectTrigger>
             <SelectContent className="bg-background border border-border">
               <SelectItem value="all">All Categories</SelectItem>
-              {CATEGORIES.map((cat) => (<SelectItem key={cat.id} value={cat.id}>{cat.icon} {cat.label}</SelectItem>))}
+              {allCategories.map((cat) => (<SelectItem key={cat.id} value={cat.id}>{cat.icon} {cat.label}</SelectItem>))}
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => setSort(v as SortType)}>
@@ -229,19 +301,21 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
         {filteredAndSortedExpenses.length > 0 ? (
           <div className="space-y-3">
             {filteredAndSortedExpenses.map((expense, index) => {
-              const category = CATEGORIES.find((c) => c.id === expense.category);
-              const subcategoryLabel = expense.subcategory ? SUBCATEGORIES[expense.category]?.find((s) => s.id === expense.subcategory)?.label : null;
+              const categoryMeta = getCategoryMeta(expense.category, customCategories);
+              const subcategoryLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
+                ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label 
+                : null;
               const expenseDate = new Date(expense.date);
               const expenseSymbol = expense.currencySymbol || currencySymbol;
               
               return (
                 <Card key={expense.id} className="p-4 rounded-2xl animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: `${CATEGORY_COLORS[expense.category]}20` }}>
-                      {category?.icon || "📦"}
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: `${categoryMeta.color}20` }}>
+                      {categoryMeta.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{category?.label || expense.category}</p>
+                      <p className="font-medium truncate">{categoryMeta.label}</p>
                       {subcategoryLabel && <p className="text-xs text-muted-foreground truncate">{subcategoryLabel}</p>}
                       {expense.notes && <p className="text-sm text-muted-foreground truncate">{expense.notes}</p>}
                       <p className="text-xs text-muted-foreground">{expenseDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</p>
@@ -301,7 +375,7 @@ const ExpenseList = ({ expenses, formatCurrency, currencySymbol, defaultCurrency
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Category</label>
               <ScrollArea className="h-[200px]">
                 <div className="grid grid-cols-3 gap-2">
-                  {CATEGORIES.map((cat) => (
+                  {allCategories.map((cat) => (
                     <Card key={cat.id} className={cn("p-3 cursor-pointer transition-all duration-200 text-center", editCategory === cat.id ? "ring-2 ring-primary bg-primary/5" : "hover:bg-secondary")} onClick={() => { setEditCategory(cat.id); setEditSubcategory(""); }}>
                       <span className="text-xl mb-1 block">{cat.icon}</span>
                       <p className="text-xs font-medium">{cat.label}</p>

@@ -1,8 +1,15 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank } from "lucide-react";
+import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
 import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES } from "@/types/expense";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   PieChart,
   Pie,
@@ -17,6 +24,7 @@ import {
   CarouselPrevious,
   CarouselNext,
 } from "@/components/ui/carousel";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DashboardProps {
   expenses: Expense[];
@@ -24,13 +32,18 @@ interface DashboardProps {
   defaultCurrency: string;
   defaultCurrencySymbol: string;
   onAddExpense: () => void;
-  onViewExpenses: () => void;
+  onViewExpenses: (date: Date) => void;
   onOpenSettings: () => void;
   onViewCategory?: (category: Category, date: Date) => void;
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
   monthlyIncome?: number;
 }
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 const Dashboard = ({
   expenses,
@@ -46,8 +59,22 @@ const Dashboard = ({
   monthlyIncome = 0,
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
+  const [expandedCurrencies, setExpandedCurrencies] = useState<Record<string, boolean>>({});
+  
   const month = selectedDate.getMonth();
   const year = selectedDate.getFullYear();
+
+  // Get the year range from expenses
+  const yearRange = useMemo(() => {
+    if (expenses.length === 0) return [new Date().getFullYear()];
+    const years = new Set<number>();
+    expenses.forEach(e => {
+      years.add(new Date(e.date).getFullYear());
+    });
+    years.add(new Date().getFullYear()); // Always include current year
+    return Array.from(years).sort((a, b) => b - a); // Descending
+  }, [expenses]);
 
   const goToPreviousMonth = () => {
     setSelectedDate(new Date(year, month - 1, 1));
@@ -60,6 +87,29 @@ const Dashboard = ({
     }
   };
 
+  const handleMonthChange = (monthIndex: string) => {
+    const newMonth = parseInt(monthIndex);
+    const newDate = new Date(year, newMonth, 1);
+    if (newDate <= new Date()) {
+      setSelectedDate(newDate);
+    }
+  };
+
+  const handleYearChange = (newYear: string) => {
+    const y = parseInt(newYear);
+    // If changing to current year and current month is ahead, clamp to current month
+    const now = new Date();
+    if (y === now.getFullYear() && month > now.getMonth()) {
+      setSelectedDate(new Date(y, now.getMonth(), 1));
+    } else {
+      setSelectedDate(new Date(y, month, 1));
+    }
+  };
+
+  const toggleCurrencyExpand = (currency: string) => {
+    setExpandedCurrencies(prev => ({ ...prev, [currency]: !prev[currency] }));
+  };
+
   const monthlyExpenses = useMemo(
     () =>
       expenses.filter((e) => {
@@ -69,8 +119,15 @@ const Dashboard = ({
     [expenses, month, year]
   );
 
+  // Yearly expenses for yearly view
+  const yearlyExpenses = useMemo(
+    () => expenses.filter((e) => new Date(e.date).getFullYear() === year),
+    [expenses, year]
+  );
+
   // Group expenses by currency with category breakdown
   const categoryDataByCurrency = useMemo(() => {
+    const sourceExpenses = viewMode === "yearly" ? yearlyExpenses : monthlyExpenses;
     const result: Record<string, { 
       currency: string; 
       symbol: string; 
@@ -79,7 +136,7 @@ const Dashboard = ({
       categories: Array<{ name: string; value: number; category: string }> 
     }> = {};
     
-    monthlyExpenses.forEach((e) => {
+    sourceExpenses.forEach((e) => {
       const curr = e.currency || defaultCurrency;
       const symbol = e.currencySymbol || defaultCurrencySymbol;
       
@@ -89,7 +146,6 @@ const Dashboard = ({
       result[curr].total += e.amount;
       result[curr].count += 1;
       
-      // Aggregate by category within this currency
       const existingCat = result[curr].categories.find(c => c.category === e.category);
       if (existingCat) {
         existingCat.value += e.amount;
@@ -102,13 +158,34 @@ const Dashboard = ({
       }
     });
     
-    // Sort categories by value within each currency
     Object.values(result).forEach(data => {
       data.categories.sort((a, b) => b.value - a.value);
     });
     
     return Object.values(result);
-  }, [monthlyExpenses, defaultCurrency, defaultCurrencySymbol]);
+  }, [monthlyExpenses, yearlyExpenses, viewMode, defaultCurrency, defaultCurrencySymbol]);
+
+  // Monthly breakdown for yearly view
+  const monthlyBreakdown = useMemo(() => {
+    if (viewMode !== "yearly") return [];
+    
+    const breakdown: Array<{ month: number; monthName: string; total: number; count: number }> = [];
+    
+    for (let m = 0; m < 12; m++) {
+      const monthExpenses = yearlyExpenses.filter(e => new Date(e.date).getMonth() === m);
+      const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+      if (total > 0 || m <= new Date().getMonth() || year < new Date().getFullYear()) {
+        breakdown.push({
+          month: m,
+          monthName: MONTHS[m],
+          total,
+          count: monthExpenses.length
+        });
+      }
+    }
+    
+    return breakdown;
+  }, [yearlyExpenses, viewMode, year]);
 
   const todayTotal = useMemo(() => {
     const today = new Date();
@@ -124,7 +201,6 @@ const Dashboard = ({
       .reduce((sum, e) => sum + e.amount, 0);
   }, [expenses]);
 
-  // Total categories used across all currencies
   const totalCategoriesUsed = useMemo(() => {
     const uniqueCategories = new Set<string>();
     categoryDataByCurrency.forEach(data => {
@@ -143,10 +219,14 @@ const Dashboard = ({
   const monthName = selectedDate.toLocaleString("default", { month: "long", year: "numeric" });
   const isCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
   
-  // Calculate savings using default currency total only
   const defaultCurrencyData = categoryDataByCurrency.find(d => d.currency === defaultCurrency);
   const defaultCurrencyTotal = defaultCurrencyData?.total || 0;
   const savings = monthlyIncome - defaultCurrencyTotal;
+
+  const handleViewMonth = (monthIndex: number) => {
+    setSelectedDate(new Date(year, monthIndex, 1));
+    setViewMode("monthly");
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24 safe-top">
@@ -167,25 +247,76 @@ const Dashboard = ({
           </Button>
         </div>
 
-        {/* Month Navigation */}
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
+        {/* Month/Year Navigation with Dropdowns */}
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Button variant="ghost" size="icon" onClick={goToPreviousMonth} className="h-9 w-9">
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <span className="font-semibold text-lg min-w-[150px] text-center">{monthName}</span>
+          
+          <Select value={month.toString()} onValueChange={handleMonthChange}>
+            <SelectTrigger className="w-[120px] rounded-xl border-0 bg-secondary/50 h-9">
+              <SelectValue>{MONTHS[month]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-background border border-border">
+              {MONTHS.map((m, idx) => {
+                const isDisabled = year === new Date().getFullYear() && idx > new Date().getMonth();
+                return (
+                  <SelectItem key={idx} value={idx.toString()} disabled={isDisabled}>
+                    {m}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          
+          <Select value={year.toString()} onValueChange={handleYearChange}>
+            <SelectTrigger className="w-[90px] rounded-xl border-0 bg-secondary/50 h-9">
+              <SelectValue>{year}</SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-background border border-border">
+              {yearRange.map((y) => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
           <Button
             variant="ghost"
             size="icon"
             onClick={goToNextMonth}
             disabled={isCurrentMonth}
+            className="h-9 w-9"
           >
             <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
 
-        {/* Main Stats Card - Multi-Currency with Carousel */}
+        {/* View Mode Toggle */}
+        <div className="flex justify-center gap-2 mb-4">
+          <Button
+            variant={viewMode === "monthly" ? "default" : "secondary"}
+            size="sm"
+            className="rounded-xl"
+            onClick={() => setViewMode("monthly")}
+          >
+            Monthly
+          </Button>
+          <Button
+            variant={viewMode === "yearly" ? "default" : "secondary"}
+            size="sm"
+            className="rounded-xl"
+            onClick={() => setViewMode("yearly")}
+          >
+            <CalendarDays className="w-4 h-4 mr-1" />
+            Yearly
+          </Button>
+        </div>
+
+        {/* Main Stats Card */}
         <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-3xl mb-4">
-          <p className="text-sm opacity-80 mb-1">Monthly Spending</p>
+          <p className="text-sm opacity-80 mb-1">
+            {viewMode === "yearly" ? `${year} Total Spending` : "Monthly Spending"}
+          </p>
           
           {categoryDataByCurrency.length > 1 ? (
             <Carousel className="w-full mb-3">
@@ -219,9 +350,9 @@ const Dashboard = ({
           <div className="flex gap-6">
             <div>
               <p className="text-xs opacity-70">Transactions</p>
-              <p className="font-semibold">{monthlyExpenses.length}</p>
+              <p className="font-semibold">{viewMode === "yearly" ? yearlyExpenses.length : monthlyExpenses.length}</p>
             </div>
-            {isCurrentMonth && (
+            {isCurrentMonth && viewMode === "monthly" && (
               <div>
                 <p className="text-xs opacity-70">Today</p>
                 <p className="font-semibold">{formatCurrency(todayTotal)}</p>
@@ -230,8 +361,40 @@ const Dashboard = ({
           </div>
         </Card>
 
-        {/* Income & Savings Cards */}
-        {monthlyIncome > 0 && (
+        {/* Yearly View: Monthly Breakdown */}
+        {viewMode === "yearly" && monthlyBreakdown.length > 0 && (
+          <Card className="p-5 rounded-2xl mb-4">
+            <h3 className="font-semibold mb-4">Monthly Breakdown</h3>
+            <ScrollArea className="max-h-[300px]">
+              <div className="space-y-2">
+                {monthlyBreakdown.map((item) => (
+                  <div
+                    key={item.month}
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
+                    onClick={() => handleViewMonth(item.month)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-primary">{item.monthName.slice(0, 3)}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.monthName}</p>
+                        <p className="text-xs text-muted-foreground">{item.count} transactions</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{formatCurrency(item.total)}</p>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </Card>
+        )}
+
+        {/* Income & Savings Cards (only in monthly view) */}
+        {viewMode === "monthly" && monthlyIncome > 0 && (
           <div className="grid grid-cols-2 gap-3 mb-4">
             <Card
               className="p-4 rounded-2xl cursor-pointer hover:bg-secondary/50 transition-colors"
@@ -279,96 +442,118 @@ const Dashboard = ({
           </Card>
           <Card
             className="p-4 rounded-2xl cursor-pointer hover:bg-secondary/50 transition-colors"
-            onClick={onViewExpenses}
+            onClick={() => onViewExpenses(selectedDate)}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
                 <Receipt className="w-5 h-5 text-accent" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">This Month</p>
-                <p className="font-semibold">{monthlyExpenses.length} expenses</p>
+                <p className="text-xs text-muted-foreground">
+                  {viewMode === "yearly" ? "This Year" : "This Month"}
+                </p>
+                <p className="font-semibold">
+                  {viewMode === "yearly" ? yearlyExpenses.length : monthlyExpenses.length} expenses
+                </p>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Category Breakdown - Carousel per Currency */}
+        {/* Category Breakdown - Expandable */}
         {categoryDataByCurrency.length > 0 && (
           <Card className="p-5 rounded-2xl mb-6">
             <h3 className="font-semibold mb-4">Spending by Category</h3>
             
             <Carousel className="w-full">
               <CarouselContent>
-                {categoryDataByCurrency.map((currencyData) => (
-                  <CarouselItem key={currencyData.currency}>
-                    {/* Currency label */}
-                    <p className="text-sm text-muted-foreground text-center mb-3">
-                      {currencyData.currency} ({currencyData.symbol})
-                    </p>
-                    
-                    <div className="flex items-center gap-4">
-                      {/* Donut chart for this currency */}
-                      <div className="w-24 h-24">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={currencyData.categories}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={25}
-                              outerRadius={40}
-                              paddingAngle={2}
-                              dataKey="value"
-                            >
-                              {currencyData.categories.map((entry, index) => (
-                                <Cell
-                                  key={`cell-${index}`}
-                                  fill={CATEGORY_COLORS[entry.category as Category] || CATEGORY_COLORS.misc}
-                                  className="cursor-pointer"
-                                  onClick={() => onViewCategory?.(entry.category as Category, selectedDate)}
-                                />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              formatter={(value: number) => `${currencyData.symbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
+                {categoryDataByCurrency.map((currencyData) => {
+                  const isExpanded = expandedCurrencies[currencyData.currency] || false;
+                  const displayCategories = isExpanded ? currencyData.categories : currencyData.categories.slice(0, 4);
+                  const hasMore = currencyData.categories.length > 4;
+                  
+                  return (
+                    <CarouselItem key={currencyData.currency}>
+                      <p className="text-sm text-muted-foreground text-center mb-3">
+                        {currencyData.currency} ({currencyData.symbol})
+                      </p>
                       
-                      {/* Category list for this currency */}
-                      <div className="flex-1 space-y-2">
-                        {currencyData.categories.slice(0, 4).map((item) => (
-                          <div
-                            key={item.category}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 rounded-lg p-1 -ml-1 transition-colors"
-                            onClick={() => onViewCategory?.(item.category as Category, selectedDate)}
-                          >
+                      <div className="flex items-start gap-4">
+                        <div className="w-24 h-24 shrink-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={currencyData.categories}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={25}
+                                outerRadius={40}
+                                paddingAngle={2}
+                                dataKey="value"
+                              >
+                                {currencyData.categories.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={CATEGORY_COLORS[entry.category as Category] || CATEGORY_COLORS.misc}
+                                    className="cursor-pointer"
+                                    onClick={() => onViewCategory?.(entry.category as Category, selectedDate)}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value: number) => `${currencyData.symbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        
+                        <div className="flex-1 space-y-2">
+                          {displayCategories.map((item) => (
                             <div
-                              className="w-3 h-3 rounded-full"
-                              style={{
-                                backgroundColor: CATEGORY_COLORS[item.category as Category] || CATEGORY_COLORS.misc,
-                              }}
-                            />
-                            <span className="text-sm flex-1">{item.name}</span>
-                            <span className="text-sm font-medium">
-                              {currencyData.symbol}{item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        ))}
-                        {currencyData.categories.length > 4 && (
-                          <p className="text-xs text-muted-foreground pl-5">
-                            +{currencyData.categories.length - 4} more categories
-                          </p>
-                        )}
+                              key={item.category}
+                              className="flex items-center gap-2 cursor-pointer hover:bg-secondary/50 rounded-lg p-1 -ml-1 transition-colors"
+                              onClick={() => onViewCategory?.(item.category as Category, selectedDate)}
+                            >
+                              <div
+                                className="w-3 h-3 rounded-full shrink-0"
+                                style={{
+                                  backgroundColor: CATEGORY_COLORS[item.category as Category] || CATEGORY_COLORS.misc,
+                                }}
+                              />
+                              <span className="text-sm flex-1 truncate">{item.name}</span>
+                              <span className="text-sm font-medium shrink-0">
+                                {currencyData.symbol}{item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          ))}
+                          
+                          {hasMore && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => toggleCurrencyExpand(currencyData.currency)}
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="w-3 h-3 mr-1" />
+                                  Show less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3 h-3 mr-1" />
+                                  +{currencyData.categories.length - 4} more categories
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CarouselItem>
-                ))}
+                    </CarouselItem>
+                  );
+                })}
               </CarouselContent>
               
-              {/* Only show navigation if multiple currencies */}
               {categoryDataByCurrency.length > 1 && (
                 <div className="flex justify-center gap-2 mt-4">
                   <CarouselPrevious className="static translate-y-0 h-8 w-8" />
@@ -379,8 +564,8 @@ const Dashboard = ({
           </Card>
         )}
 
-        {/* Recent Transactions */}
-        {recentExpenses.length > 0 && (
+        {/* Recent Transactions (only in monthly view) */}
+        {viewMode === "monthly" && recentExpenses.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Recent Transactions</h3>
@@ -388,7 +573,7 @@ const Dashboard = ({
                 variant="ghost"
                 size="sm"
                 className="text-primary"
-                onClick={onViewExpenses}
+                onClick={() => onViewExpenses(selectedDate)}
               >
                 See all
                 <ArrowUpRight className="w-4 h-4 ml-1" />
@@ -398,7 +583,7 @@ const Dashboard = ({
               {recentExpenses.map((expense) => {
                 const category = CATEGORIES.find((c) => c.id === expense.category);
                 const subcategoryLabel = expense.subcategory
-                  ? SUBCATEGORIES[expense.category]?.find((s) => s.id === expense.subcategory)?.label
+                  ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label
                   : null;
                 const expenseSymbol = expense.currencySymbol || defaultCurrencySymbol;
                 return (
@@ -407,7 +592,7 @@ const Dashboard = ({
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                         style={{
-                          backgroundColor: `${CATEGORY_COLORS[expense.category]}20`,
+                          backgroundColor: `${CATEGORY_COLORS[expense.category as Category] || CATEGORY_COLORS.misc}20`,
                         }}
                       >
                         {category?.icon || "📦"}
@@ -437,29 +622,34 @@ const Dashboard = ({
         )}
 
         {/* Empty State */}
-        {monthlyExpenses.length === 0 && (
-          <Card className="p-8 rounded-2xl text-center">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Receipt className="w-8 h-8 text-primary" />
+        {categoryDataByCurrency.length === 0 && (
+          <Card className="p-8 rounded-2xl text-center mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+              <Receipt className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2">No expenses in {monthName}</h3>
+            <h3 className="font-semibold mb-2">No expenses yet</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {isCurrentMonth ? 'Start tracking your spending by adding your first expense.' : 'No expenses were recorded for this month.'}
+              {viewMode === "yearly" 
+                ? `Start tracking your spending for ${year}`
+                : `Start tracking your spending for ${monthName}`
+              }
             </p>
-            {isCurrentMonth && (
-              <Button className="rounded-xl" onClick={onAddExpense}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Expense
-              </Button>
-            )}
+            <Button onClick={onAddExpense} className="rounded-xl">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Expense
+            </Button>
           </Card>
         )}
       </div>
 
       {/* Floating Action Button */}
-      <button className="fab" onClick={onAddExpense} aria-label="Add expense">
+      <Button
+        onClick={onAddExpense}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg fab"
+        size="icon"
+      >
         <Plus className="w-6 h-6" />
-      </button>
+      </Button>
     </div>
   );
 };
