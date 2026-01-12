@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import SplashScreen from "@/components/SplashScreen";
 import Onboarding from "@/components/Onboarding";
+import AppOnboarding from "@/components/AppOnboarding";
 import Dashboard from "@/components/Dashboard";
 import AddExpense from "@/components/AddExpense";
 import SettingsPanel from "@/components/SettingsPanel";
@@ -19,7 +20,7 @@ import { useIncome } from "@/hooks/useIncome";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { UserSettings, Category } from "@/types/expense";
 
-type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy";
+type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy" | "app-tour";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -31,7 +32,7 @@ const Index = () => {
   const [isChangingPin, setIsChangingPin] = useState(false);
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
@@ -73,6 +74,16 @@ const Index = () => {
     setCurrentView("pin-setup");
   };
 
+  const handleAppTourComplete = () => {
+    completeAppTour();
+    setCurrentView("dashboard");
+  };
+
+  const handleViewAppTour = () => {
+    resetAppTour();
+    setCurrentView("app-tour");
+  };
+
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
@@ -97,6 +108,16 @@ const Index = () => {
 
   if (!settings.hasCompletedOnboarding) {
     return <Onboarding onComplete={(newSettings: Partial<UserSettings>) => updateSettings(newSettings)} />;
+  }
+
+  // Show app tour on first launch after onboarding
+  if (!settings.hasSeenAppTour || currentView === "app-tour") {
+    return (
+      <AppOnboarding
+        onComplete={handleAppTourComplete}
+        onSkip={handleAppTourComplete}
+      />
+    );
   }
 
   return (
@@ -143,6 +164,7 @@ const Index = () => {
           onDisablePin={disablePin}
           onChangePin={handleChangePin}
           onViewPrivacy={() => setCurrentView("privacy")}
+          onViewAppTour={handleViewAppTour}
         />
       )}
 

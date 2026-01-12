@@ -8,6 +8,7 @@ const defaultSettings: UserSettings = {
   currencySymbol: "$",
   theme: "system",
   hasCompletedOnboarding: false,
+  hasSeenAppTour: false,
   customCategories: [],
   customSubcategories: {
     food: [],
@@ -52,6 +53,7 @@ export const useSettings = () => {
           customCategories: parsed.customCategories || [],
           customSubcategories: { ...defaultSettings.customSubcategories, ...parsed.customSubcategories },
           hiddenCategories: parsed.hiddenCategories || [],
+          hasSeenAppTour: parsed.hasSeenAppTour || false,
           pinEnabled,
           pinHash: parsed.pinHash,
           customIncomeSources: parsed.customIncomeSources || [],
@@ -105,6 +107,14 @@ export const useSettings = () => {
 
   const completeOnboarding = useCallback(() => {
     setSettings((prev) => ({ ...prev, hasCompletedOnboarding: true }));
+  }, []);
+
+  const completeAppTour = useCallback(() => {
+    setSettings((prev) => ({ ...prev, hasSeenAppTour: true }));
+  }, []);
+
+  const resetAppTour = useCallback(() => {
+    setSettings((prev) => ({ ...prev, hasSeenAppTour: false }));
   }, []);
 
   const resetSettings = useCallback(() => {
@@ -248,6 +258,8 @@ export const useSettings = () => {
     isLoading,
     updateSettings,
     completeOnboarding,
+    completeAppTour,
+    resetAppTour,
     resetSettings,
     formatCurrency,
     addCustomCategory,

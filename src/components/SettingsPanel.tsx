@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -40,9 +40,10 @@ interface SettingsPanelProps {
   onDisablePin?: () => void;
   onChangePin?: () => void;
   onViewPrivacy?: () => void;
+  onViewAppTour?: () => void;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy, onViewAppTour }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
@@ -516,20 +517,58 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
             About
           </h3>
-          <Card className="p-4 rounded-2xl">
-            <div className="text-center">
-              <h2 className="font-display font-bold text-2xl gradient-text mb-1">
-                MEET
-              </h2>
-              <p className="text-sm text-muted-foreground mb-2">
-                Monthly Expense Entry & Tracking
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Version 1.0.0
-              </p>
-              <p className="text-xs text-muted-foreground mt-4">
-                Built with Love by MoonShaker Labs
-              </p>
+          <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={onViewAppTour}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-pink-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">View Onboarding Again</p>
+                  <p className="text-sm text-muted-foreground">
+                    See app features tour
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={onViewPrivacy}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Privacy Policy</p>
+                  <p className="text-sm text-muted-foreground">
+                    How your data is protected
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <div className="p-4">
+              <div className="text-center">
+                <h2 className="font-display font-bold text-2xl gradient-text mb-1">
+                  MEET
+                </h2>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Monthly Expense Entry & Tracking
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Version 1.0.0
+                </p>
+                <p className="text-xs text-muted-foreground mt-4">
+                  Built with Love by MoonShaker Labs
+                </p>
+              </div>
             </div>
           </Card>
         </div>
