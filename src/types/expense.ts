@@ -88,6 +88,7 @@ export interface UserSettings {
   currencySymbol: string;
   theme: "light" | "dark" | "system";
   hasCompletedOnboarding: boolean;
+  hasSeenAppTour: boolean; // New: tracks if user has seen the 4-screen feature tour
   monthlyIncome?: number;
   customCategories: CustomCategory[];
   customSubcategories: Record<string, CustomCategory[]>;
