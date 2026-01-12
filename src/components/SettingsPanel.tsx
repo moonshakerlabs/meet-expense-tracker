@@ -523,8 +523,8 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
               onClick={onViewAppTour}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 text-pink-500" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-emerald-500" />
                 </div>
                 <div className="text-left">
                   <p className="font-medium">View Onboarding Again</p>

@@ -14,9 +14,9 @@ const slides = [
     highlight: "Log your everyday spending in seconds.",
     subtext: "Simple, fast, and flexible expense entry.",
     icon: Smartphone,
-    gradient: "from-pink-500/20 to-violet-500/20",
-    iconBg: "bg-pink-500/20",
-    iconColor: "text-pink-400",
+    gradient: "from-emerald-500/20 to-teal-500/20",
+    iconBg: "bg-emerald-500/20",
+    iconColor: "text-emerald-400",
   },
   {
     id: 2,
@@ -24,9 +24,9 @@ const slides = [
     highlight: "Understand where your money goes.",
     subtext: "View expenses by category, month, week, and year.",
     icon: PieChart,
-    gradient: "from-violet-500/20 to-purple-500/20",
-    iconBg: "bg-violet-500/20",
-    iconColor: "text-violet-400",
+    gradient: "from-teal-500/20 to-green-500/20",
+    iconBg: "bg-teal-500/20",
+    iconColor: "text-teal-400",
   },
   {
     id: 3,
@@ -34,9 +34,9 @@ const slides = [
     highlight: "Add expenses in different currencies.",
     subtext: "View totals and breakdowns for each supported currency.",
     icon: Globe,
-    gradient: "from-purple-500/20 to-fuchsia-500/20",
-    iconBg: "bg-purple-500/20",
-    iconColor: "text-purple-400",
+    gradient: "from-green-500/20 to-lime-500/20",
+    iconBg: "bg-green-500/20",
+    iconColor: "text-green-400",
   },
   {
     id: 4,
@@ -44,9 +44,9 @@ const slides = [
     highlight: "See trends and manage your spending smarter.",
     subtext: "Make informed decisions with charts and insights.",
     icon: TrendingUp,
-    gradient: "from-fuchsia-500/20 to-pink-500/20",
-    iconBg: "bg-fuchsia-500/20",
-    iconColor: "text-fuchsia-400",
+    gradient: "from-lime-500/20 to-emerald-500/20",
+    iconBg: "bg-lime-500/20",
+    iconColor: "text-lime-400",
   },
 ];
 
@@ -159,7 +159,7 @@ const AppOnboarding = ({ onComplete, onSkip }: AppOnboardingProps) => {
         {/* Action Button */}
         <Button
           size="lg"
-          className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-white border-0"
+          className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
           onClick={handleNext}
         >
           {isLastSlide ? "Get Started" : "Next"}
