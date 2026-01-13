@@ -381,11 +381,11 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             Data
           </h3>
           <Card className="rounded-2xl divide-y divide-border">
-            {/* Hidden file input for import */}
+            {/* Hidden file input for import - expanded accept for better mobile support */}
             <input
               type="file"
               ref={fileInputRef}
-              accept=".csv"
+              accept=".csv,text/csv,text/comma-separated-values,application/csv,text/plain,*/*"
               onChange={handleImportCSV}
               className="hidden"
             />
