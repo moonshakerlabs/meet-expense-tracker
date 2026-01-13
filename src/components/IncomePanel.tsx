@@ -262,42 +262,46 @@ const IncomePanel = ({
                 const sourceInfo = getSourceInfo(income.source);
                 return (
                   <Card key={income.id} className="p-4 rounded-2xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg">
-                          {sourceInfo.icon}
-                        </div>
-                        <div>
-                          <p className="font-medium">{sourceInfo.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Day {income.recurringDay} of each month
-                          </p>
-                          {income.autoUpdateEndDate && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg shrink-0">
+                            {sourceInfo.icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{sourceInfo.label}</p>
                             <p className="text-xs text-muted-foreground">
-                              Until {format(new Date(income.autoUpdateEndDate), "MMM yyyy")}
+                              Day {income.recurringDay} of each month
                             </p>
-                          )}
+                            {income.autoUpdateEndDate && (
+                              <p className="text-xs text-muted-foreground">
+                                Until {format(new Date(income.autoUpdateEndDate), "MMM yyyy")}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-emerald-600">
+                        <p className="font-semibold text-emerald-600 shrink-0">
                           +{formatCurrency(income.amount)}
                         </p>
+                      </div>
+                      <div className="flex justify-end gap-2 border-t border-border pt-2">
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
+                          className="h-8 px-3"
                           onClick={() => handleEdit(income)}
                         >
-                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                          <Pencil className="w-4 h-4 mr-1" />
+                          Edit
                         </Button>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="sm"
+                          className="h-8 px-3 text-destructive hover:text-destructive"
                           onClick={() => handleDeleteClick(income)}
                         >
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
                         </Button>
                       </div>
                     </div>
@@ -322,42 +326,46 @@ const IncomePanel = ({
                   const sourceInfo = getSourceInfo(income.source);
                   return (
                     <Card key={income.id} className="p-4 rounded-2xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg">
-                            {sourceInfo.icon}
-                          </div>
-                          <div>
-                            <p className="font-medium">{sourceInfo.label}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(income.date), "MMM d, yyyy")}
-                            </p>
-                            {income.notes && (
-                              <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                {income.notes}
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg shrink-0">
+                              {sourceInfo.icon}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{sourceInfo.label}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(income.date), "MMM d, yyyy")}
                               </p>
-                            )}
+                              {income.notes && (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {income.notes}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-emerald-600">
+                          <p className="font-semibold text-emerald-600 shrink-0">
                             +{formatCurrency(income.amount)}
                           </p>
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-border pt-2">
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
+                            size="sm"
+                            className="h-8 px-3"
                             onClick={() => handleEdit(income)}
                           >
-                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                            <Pencil className="w-4 h-4 mr-1" />
+                            Edit
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
+                            size="sm"
+                            className="h-8 px-3 text-destructive hover:text-destructive"
                             onClick={() => handleDeleteClick(income)}
                           >
-                            <Trash2 className="w-4 h-4 text-destructive" />
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
                           </Button>
                         </div>
                       </div>
