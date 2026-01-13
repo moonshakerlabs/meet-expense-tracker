@@ -18,7 +18,18 @@ import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
 import { useIncome } from "@/hooks/useIncome";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import { useBackButton, exitApp } from "@/hooks/useBackButton";
 import { UserSettings, Category } from "@/types/expense";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy" | "app-tour";
 
@@ -30,11 +41,42 @@ const Index = () => {
   const [dashboardDate, setDashboardDate] = useState(new Date());
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
+
+  // Handle back button navigation
+  const getBackHandler = () => {
+    switch (currentView) {
+      case "add-expense":
+      case "settings":
+      case "expense-list":
+      case "income":
+      case "recurring":
+        return () => setCurrentView("dashboard");
+      case "category-detail":
+        return () => setCurrentView("dashboard");
+      case "manage-categories":
+      case "privacy":
+        return () => setCurrentView("settings");
+      case "pin-setup":
+        return () => {
+          setCurrentView("settings");
+          setIsChangingPin(false);
+        };
+      default:
+        return undefined;
+    }
+  };
+
+  useBackButton({
+    onBack: getBackHandler(),
+    isHome: currentView === "dashboard",
+    onExitRequest: () => setShowExitDialog(true),
+  });
 
   // Migrate expenses with missing currency once both are loaded
   useEffect(() => {
@@ -82,6 +124,11 @@ const Index = () => {
   const handleViewAppTour = () => {
     resetAppTour();
     setCurrentView("app-tour");
+  };
+
+  const handleExitApp = () => {
+    setShowExitDialog(false);
+    exitApp();
   };
 
   if (showSplash) {
@@ -198,12 +245,15 @@ const Index = () => {
           incomes={incomes}
           formatCurrency={formatCurrency}
           currencySymbol={settings.currencySymbol}
+          customIncomeSources={settings.customIncomeSources}
           onAddIncome={addIncome}
           onUpdateIncome={updateIncome}
           onDeleteIncome={deleteIncome}
           onStopRecurring={stopRecurringIncome}
           getMonthlyIncome={getMonthlyIncome}
           onBack={() => setCurrentView("dashboard")}
+          onAddIncomeSource={addIncomeSource}
+          onRemoveIncomeSource={removeIncomeSource}
         />
       )}
 
@@ -253,6 +303,27 @@ const Index = () => {
       )}
 
       <InstallPrompt />
+
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <AlertDialogContent className="max-w-[90%] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit App?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to exit MEET?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl"
+              onClick={handleExitApp}
+            >
+              Exit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
