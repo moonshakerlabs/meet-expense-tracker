@@ -37,47 +37,9 @@ export const useIncome = () => {
     }
   }, [incomes, isLoading]);
 
-  // Check and generate recurring income entries
-  useEffect(() => {
-    if (isLoading) return;
-
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-
-    incomes.forEach((income) => {
-      if (!income.isRecurring || !income.isActive) return;
-
-      // Check if auto-update has ended
-      if (income.autoUpdateEndDate && new Date(income.autoUpdateEndDate) < today) {
-        return;
-      }
-
-      // Check if we already have an entry for this month
-      const hasThisMonth = incomes.some(
-        (i) =>
-          i.source === income.source &&
-          new Date(i.date).getMonth() === currentMonth &&
-          new Date(i.date).getFullYear() === currentYear &&
-          i.id !== income.id
-      );
-
-      if (!hasThisMonth && income.recurringDay && today.getDate() >= income.recurringDay) {
-        // Auto-generate entry for this month
-        const newDate = new Date(currentYear, currentMonth, income.recurringDay);
-        if (newDate <= today) {
-          addIncome({
-            amount: income.amount,
-            source: income.source,
-            date: newDate,
-            notes: `Auto-generated from recurring income`,
-            isRecurring: false,
-            isActive: true,
-          });
-        }
-      }
-    });
-  }, [isLoading, incomes]);
+  // Recurring income entries are templates - they define the recurring pattern
+  // The monthly income is calculated by including the recurring entry itself for the current month
+  // No auto-generation needed - the recurring entry IS the monthly entry
 
   const addIncome = useCallback(
     (data: {
@@ -124,12 +86,41 @@ export const useIncome = () => {
     (date: Date = new Date()) => {
       const month = date.getMonth();
       const year = date.getFullYear();
-      return incomes
-        .filter((i) => {
-          const incomeDate = new Date(i.date);
-          return incomeDate.getMonth() === month && incomeDate.getFullYear() === year;
-        })
-        .reduce((sum, i) => sum + i.amount, 0);
+      const today = new Date();
+      
+      let total = 0;
+      
+      incomes.forEach((income) => {
+        const incomeDate = new Date(income.date);
+        
+        if (income.isRecurring && income.isActive) {
+          // For recurring income: check if it applies to this month
+          // It applies if the recurring entry was created before or during this month
+          // and hasn't ended yet
+          const createdDate = new Date(income.createdAt);
+          const createdMonth = createdDate.getMonth();
+          const createdYear = createdDate.getFullYear();
+          
+          // Check if this recurring income applies to the target month
+          const isCurrentOrFutureMonth = 
+            year > createdYear || (year === createdYear && month >= createdMonth);
+          
+          // Check if auto-update has ended
+          const hasEnded = income.autoUpdateEndDate && 
+            new Date(income.autoUpdateEndDate) < new Date(year, month + 1, 0);
+          
+          if (isCurrentOrFutureMonth && !hasEnded) {
+            total += income.amount;
+          }
+        } else if (!income.isRecurring) {
+          // For non-recurring income: only count if date is in this month
+          if (incomeDate.getMonth() === month && incomeDate.getFullYear() === year) {
+            total += income.amount;
+          }
+        }
+      });
+      
+      return total;
     },
     [incomes]
   );
@@ -138,16 +129,31 @@ export const useIncome = () => {
     (date: Date = new Date()) => {
       const month = date.getMonth();
       const year = date.getFullYear();
-      const monthlyIncomes = incomes.filter((i) => {
-        const incomeDate = new Date(i.date);
-        return incomeDate.getMonth() === month && incomeDate.getFullYear() === year;
-      });
-
-      // Dynamic aggregation - don't rely on fixed source types
       const totals: Record<string, number> = {};
 
-      monthlyIncomes.forEach((i) => {
-        totals[i.source] = (totals[i.source] || 0) + i.amount;
+      incomes.forEach((income) => {
+        const incomeDate = new Date(income.date);
+        
+        if (income.isRecurring && income.isActive) {
+          // Same logic as getMonthlyIncome for recurring
+          const createdDate = new Date(income.createdAt);
+          const createdMonth = createdDate.getMonth();
+          const createdYear = createdDate.getFullYear();
+          
+          const isCurrentOrFutureMonth = 
+            year > createdYear || (year === createdYear && month >= createdMonth);
+          
+          const hasEnded = income.autoUpdateEndDate && 
+            new Date(income.autoUpdateEndDate) < new Date(year, month + 1, 0);
+          
+          if (isCurrentOrFutureMonth && !hasEnded) {
+            totals[income.source] = (totals[income.source] || 0) + income.amount;
+          }
+        } else if (!income.isRecurring) {
+          if (incomeDate.getMonth() === month && incomeDate.getFullYear() === year) {
+            totals[income.source] = (totals[income.source] || 0) + income.amount;
+          }
+        }
       });
 
       return totals;
