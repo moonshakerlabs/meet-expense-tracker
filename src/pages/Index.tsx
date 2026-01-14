@@ -44,7 +44,7 @@ const Index = () => {
   const [showExitDialog, setShowExitDialog] = useState(false);
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
@@ -182,6 +182,7 @@ const Index = () => {
           onViewIncome={() => setCurrentView("income")}
           onViewRecurring={() => setCurrentView("recurring")}
           monthlyIncome={getMonthlyIncome()}
+          userName={settings.userName}
         />
       )}
 
@@ -254,6 +255,7 @@ const Index = () => {
           onBack={() => setCurrentView("dashboard")}
           onAddIncomeSource={addIncomeSource}
           onRemoveIncomeSource={removeIncomeSource}
+          onUpdateIncomeSource={updateIncomeSource}
         />
       )}
 

@@ -38,6 +38,7 @@ interface DashboardProps {
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
   monthlyIncome?: number;
+  userName?: string;
 }
 
 const MONTHS = [
@@ -57,6 +58,7 @@ const Dashboard = ({
   onViewIncome,
   onViewRecurring,
   monthlyIncome = 0,
+  userName,
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
@@ -234,7 +236,7 @@ const Dashboard = ({
       <div className="px-5 pt-6 pb-4">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-sm text-muted-foreground">Welcome back</p>
+            <p className="text-sm text-muted-foreground">Welcome back{userName ? `, ${userName}` : ''}</p>
             <h1 className="font-display font-bold text-2xl">Dashboard</h1>
           </div>
           <Button

@@ -98,6 +98,7 @@ export interface UserSettings {
   pinEnabled: boolean;
   pinHash?: string;
   customIncomeSources: CustomIncomeSource[];
+  userName?: string; // User's display name
 }
 
 export const COUNTRIES = [

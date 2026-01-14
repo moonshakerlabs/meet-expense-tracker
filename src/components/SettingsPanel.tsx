@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -50,6 +51,8 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   const [showLanguageSheet, setShowLanguageSheet] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [showTimelineSheet, setShowTimelineSheet] = useState(false);
+  const [showNameSheet, setShowNameSheet] = useState(false);
+  const [editName, setEditName] = useState(settings.userName || "");
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [clearStep, setClearStep] = useState<"warning" | "confirm">("warning");
@@ -223,6 +226,35 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
       </div>
 
       <div className="p-5 space-y-6">
+        {/* Profile */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Profile
+          </h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={() => {
+                setEditName(settings.userName || "");
+                setShowNameSheet(true);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <User className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Name</p>
+                  <p className="text-sm text-muted-foreground">
+                    {settings.userName || "Not set"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
         {/* Preferences */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
@@ -710,6 +742,33 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
               ))}
             </div>
           </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* Name Sheet */}
+      <Sheet open={showNameSheet} onOpenChange={setShowNameSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Edit Name</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 pb-8">
+            <Input
+              placeholder="Enter your name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="rounded-xl h-12"
+              autoFocus
+            />
+            <Button
+              className="w-full rounded-xl h-12"
+              onClick={() => {
+                onUpdateSettings({ userName: editName.trim() || undefined });
+                setShowNameSheet(false);
+              }}
+            >
+              Save
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
 

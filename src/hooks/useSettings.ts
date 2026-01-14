@@ -30,6 +30,7 @@ const defaultSettings: UserSettings = {
   pinEnabled: false,
   pinHash: undefined,
   customIncomeSources: [],
+  userName: undefined,
 };
 
 export const useSettings = () => {
@@ -57,6 +58,7 @@ export const useSettings = () => {
           pinEnabled,
           pinHash: parsed.pinHash,
           customIncomeSources: parsed.customIncomeSources || [],
+          userName: parsed.userName || undefined,
         });
       }
     } catch (error) {

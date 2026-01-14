@@ -86,17 +86,26 @@ export const useIncome = () => {
     (date: Date = new Date()) => {
       const month = date.getMonth();
       const year = date.getFullYear();
-      const today = new Date();
       
       let total = 0;
+      // Track which recurring income IDs we've already counted to prevent duplicates
+      const countedRecurringIds = new Set<string>();
       
       incomes.forEach((income) => {
         const incomeDate = new Date(income.date);
+        const incomeMonth = incomeDate.getMonth();
+        const incomeYear = incomeDate.getFullYear();
+        
+        // Check if this is the original entry month
+        const isOriginalMonth = incomeMonth === month && incomeYear === year;
         
         if (income.isRecurring && income.isActive) {
+          // Prevent counting the same recurring income twice
+          if (countedRecurringIds.has(income.id)) return;
+          countedRecurringIds.add(income.id);
+          
           // For recurring income: check if it applies to this month
-          // It applies if the recurring entry was created before or during this month
-          // and hasn't ended yet
+          // It applies if the income entry was created before or during this month
           const createdDate = new Date(income.createdAt);
           const createdMonth = createdDate.getMonth();
           const createdYear = createdDate.getFullYear();
@@ -114,7 +123,7 @@ export const useIncome = () => {
           }
         } else if (!income.isRecurring) {
           // For non-recurring income: only count if date is in this month
-          if (incomeDate.getMonth() === month && incomeDate.getFullYear() === year) {
+          if (isOriginalMonth) {
             total += income.amount;
           }
         }
@@ -130,11 +139,20 @@ export const useIncome = () => {
       const month = date.getMonth();
       const year = date.getFullYear();
       const totals: Record<string, number> = {};
+      // Track which recurring income IDs we've already counted
+      const countedRecurringIds = new Set<string>();
 
       incomes.forEach((income) => {
         const incomeDate = new Date(income.date);
+        const incomeMonth = incomeDate.getMonth();
+        const incomeYear = incomeDate.getFullYear();
+        const isOriginalMonth = incomeMonth === month && incomeYear === year;
         
         if (income.isRecurring && income.isActive) {
+          // Prevent counting the same recurring income twice
+          if (countedRecurringIds.has(income.id)) return;
+          countedRecurringIds.add(income.id);
+          
           // Same logic as getMonthlyIncome for recurring
           const createdDate = new Date(income.createdAt);
           const createdMonth = createdDate.getMonth();
@@ -150,7 +168,7 @@ export const useIncome = () => {
             totals[income.source] = (totals[income.source] || 0) + income.amount;
           }
         } else if (!income.isRecurring) {
-          if (incomeDate.getMonth() === month && incomeDate.getFullYear() === year) {
+          if (isOriginalMonth) {
             totals[income.source] = (totals[income.source] || 0) + income.amount;
           }
         }
