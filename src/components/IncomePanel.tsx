@@ -54,6 +54,7 @@ interface IncomePanelProps {
   onBack: () => void;
   onAddIncomeSource?: (source: CustomIncomeSource) => void;
   onRemoveIncomeSource?: (sourceId: string) => void;
+  onUpdateIncomeSource?: (sourceId: string, updates: Partial<CustomIncomeSource>) => void;
 }
 
 const IncomePanel = ({
@@ -69,12 +70,16 @@ const IncomePanel = ({
   onBack,
   onAddIncomeSource,
   onRemoveIncomeSource,
+  onUpdateIncomeSource,
 }: IncomePanelProps) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [showEditSourceModal, setShowEditSourceModal] = useState(false);
+  const [showDeleteSourceDialog, setShowDeleteSourceDialog] = useState(false);
   const [selectedIncome, setSelectedIncome] = useState<Income | null>(null);
+  const [selectedSource, setSelectedSource] = useState<CustomIncomeSource | null>(null);
   
   // Add/Edit form state
   const [amount, setAmount] = useState("");
@@ -87,6 +92,8 @@ const IncomePanel = ({
   // Custom source form state
   const [newSourceLabel, setNewSourceLabel] = useState("");
   const [newSourceIcon, setNewSourceIcon] = useState("💵");
+  const [editSourceLabel, setEditSourceLabel] = useState("");
+  const [editSourceIcon, setEditSourceIcon] = useState("💵");
 
   const monthlyTotal = getMonthlyIncome();
   const recurringIncomes = incomes.filter((i) => i.isRecurring && i.isActive);
@@ -226,6 +233,44 @@ const IncomePanel = ({
     setNewSourceLabel("");
     setNewSourceIcon("💵");
     setShowAddSourceModal(false);
+  };
+
+  const handleEditSource = (source: CustomIncomeSource) => {
+    setSelectedSource(source);
+    setEditSourceLabel(source.label);
+    setEditSourceIcon(source.icon);
+    setShowEditSourceModal(true);
+  };
+
+  const handleUpdateSource = () => {
+    if (!selectedSource || !editSourceLabel.trim()) {
+      toast({ title: "Error", description: "Please enter a source name", variant: "destructive" });
+      return;
+    }
+
+    onUpdateIncomeSource?.(selectedSource.id, {
+      label: editSourceLabel.trim(),
+      icon: editSourceIcon || "💵",
+    });
+    toast({ title: "Income source updated" });
+    setSelectedSource(null);
+    setEditSourceLabel("");
+    setEditSourceIcon("💵");
+    setShowEditSourceModal(false);
+  };
+
+  const handleDeleteSourceClick = (source: CustomIncomeSource) => {
+    setSelectedSource(source);
+    setShowDeleteSourceDialog(true);
+  };
+
+  const handleConfirmDeleteSource = () => {
+    if (selectedSource) {
+      onRemoveIncomeSource?.(selectedSource.id);
+      toast({ title: "Income source deleted" });
+    }
+    setSelectedSource(null);
+    setShowDeleteSourceDialog(false);
   };
 
   const iconOptions = ["💵", "💳", "🏦", "📈", "🎁", "💼", "🏪", "📱", "💻", "🎨"];
@@ -409,22 +454,34 @@ const IncomePanel = ({
             <h3 className="text-sm font-medium text-muted-foreground mb-3">
               Custom Income Sources
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-2">
               {customIncomeSources.map((src) => (
                 <div
                   key={src.id}
-                  className="flex items-center gap-2 px-3 py-2 bg-secondary rounded-xl"
+                  className="flex items-center justify-between px-3 py-2 bg-secondary rounded-xl"
                 >
-                  <span>{src.icon}</span>
-                  <span className="text-sm font-medium">{src.label}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => onRemoveIncomeSource?.(src.id)}
-                  >
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span>{src.icon}</span>
+                    <span className="text-sm font-medium">{src.label}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleEditSource(src)}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleDeleteSourceClick(src)}
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -738,6 +795,76 @@ const IncomePanel = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Custom Source Modal */}
+      <Dialog open={showEditSourceModal} onOpenChange={setShowEditSourceModal}>
+        <DialogContent className="max-w-[90%] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit Income Source</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Source Name
+              </label>
+              <Input
+                placeholder="e.g., Freelance Work"
+                value={editSourceLabel}
+                onChange={(e) => setEditSourceLabel(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Icon
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {iconOptions.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${
+                      editSourceIcon === icon
+                        ? "bg-primary/20 ring-2 ring-primary"
+                        : "bg-secondary hover:bg-secondary/80"
+                    }`}
+                    onClick={() => setEditSourceIcon(icon)}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Button
+              className="w-full rounded-xl h-12 font-semibold bg-emerald-500 hover:bg-emerald-600"
+              onClick={handleUpdateSource}
+            >
+              Update Source
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Source Confirmation */}
+      <AlertDialog open={showDeleteSourceDialog} onOpenChange={setShowDeleteSourceDialog}>
+        <AlertDialogContent className="max-w-[90%] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Income Source?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this custom income source.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive hover:bg-destructive/90"
+              onClick={handleConfirmDeleteSource}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

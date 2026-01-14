@@ -10,10 +10,11 @@ interface OnboardingProps {
   onComplete: (settings: Partial<UserSettings>) => void;
 }
 
-type Step = "welcome" | "country" | "currency" | "theme";
+type Step = "welcome" | "name" | "country" | "currency" | "theme";
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
   const [step, setStep] = useState<Step>("welcome");
+  const [userName, setUserName] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
@@ -45,6 +46,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   const handleComplete = () => {
     const currency = CURRENCIES.find((c) => c.code === selectedCurrency);
     onComplete({
+      userName: userName.trim() || undefined,
       country: selectedCountry,
       language: selectedLanguage,
       currency: selectedCurrency,
@@ -67,7 +69,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 safe-top safe-bottom">
       {/* Progress indicators */}
       <div className="flex gap-2 mb-8">
-        {["welcome", "country", "currency", "theme"].map((s, i) => (
+        {["welcome", "name", "country", "currency", "theme"].map((s, i) => (
           <div
             key={s}
             className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -91,9 +93,38 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
           <Button
             size="lg"
             className="w-full rounded-2xl h-14 text-lg font-semibold"
-            onClick={() => setStep("country")}
+            onClick={() => setStep("name")}
           >
             Get Started
+            <ChevronRight className="ml-2 w-5 h-5" />
+          </Button>
+        </div>
+      )}
+
+      {step === "name" && (
+        <div className="animate-fade-in max-w-sm w-full text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <span className="text-3xl">👋</span>
+          </div>
+          <h1 className="font-display font-bold text-2xl mb-2">
+            What's Your Name?
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            We'd love to personalize your experience.
+          </p>
+          <Input
+            placeholder="Enter your name"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+            className="rounded-xl h-14 text-lg text-center mb-6"
+            autoFocus
+          />
+          <Button
+            size="lg"
+            className="w-full rounded-2xl h-14 text-lg font-semibold"
+            onClick={() => setStep("country")}
+          >
+            Continue
             <ChevronRight className="ml-2 w-5 h-5" />
           </Button>
         </div>
