@@ -38,9 +38,10 @@ interface AddExpenseProps {
   onBack: () => void;
   customSubcategories?: Record<Category, { id: string; label: string; icon: string }[]>;
   hiddenCategories?: Category[];
+  customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
 }
 
-const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]>, hiddenCategories = [] }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [] }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
@@ -124,7 +125,13 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
   };
 
   const availableSubcategories = getAvailableSubcategories();
-  const visibleCategories = CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id));
+  
+  // Combine built-in and custom categories, filter hidden ones
+  const allCategories = [
+    ...CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id)),
+    ...customCategories.map((cat) => ({ id: cat.id as Category, label: cat.label, icon: cat.icon, color: cat.color || "hsl(270, 50%, 50%)" })),
+  ];
+  const visibleCategories = allCategories;
 
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom flex flex-col">
