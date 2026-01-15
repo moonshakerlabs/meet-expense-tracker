@@ -50,6 +50,7 @@ interface ExpenseListProps {
   onDeleteExpense: (id: string) => void;
   selectedDate?: Date;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
+  customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
 }
 
 type FilterType = "today" | "week" | "month" | "all";
@@ -71,7 +72,8 @@ const ExpenseList = ({
   onUpdateExpense, 
   onDeleteExpense,
   selectedDate,
-  customCategories = []
+  customCategories = [],
+  customSubcategories = {}
 }: ExpenseListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
@@ -225,9 +227,13 @@ const ExpenseList = ({
     return [...builtIn, ...custom];
   }, [customCategories]);
 
-  const editSubcategories = editCategory && typeof editCategory === 'string' 
-    ? (SUBCATEGORIES[editCategory as Category] || []) 
-    : [];
+  // Get subcategories for editing (built-in + custom)
+  const editSubcategories = useMemo(() => {
+    if (!editCategory) return [];
+    const builtInSubs = SUBCATEGORIES[editCategory as Category] || [];
+    const customSubs = customSubcategories[editCategory] || [];
+    return [...builtInSubs, ...customSubs.map((c) => ({ id: c.id, label: c.label }))];
+  }, [editCategory, customSubcategories]);
 
   const monthLabel = new Date(contextYear, contextMonth).toLocaleString("default", { month: "long", year: "numeric" });
 
@@ -302,9 +308,14 @@ const ExpenseList = ({
           <div className="space-y-3">
             {filteredAndSortedExpenses.map((expense, index) => {
               const categoryMeta = getCategoryMeta(expense.category, customCategories);
-              const subcategoryLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
+              // Check both built-in and custom subcategories
+              const builtInSubLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
                 ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label 
                 : null;
+              const customSubLabel = expense.subcategory && customSubcategories[expense.category]
+                ? customSubcategories[expense.category]?.find((s) => s.id === expense.subcategory)?.label
+                : null;
+              const subcategoryLabel = builtInSubLabel || customSubLabel;
               const expenseDate = new Date(expense.date);
               const expenseSymbol = expense.currencySymbol || currencySymbol;
               

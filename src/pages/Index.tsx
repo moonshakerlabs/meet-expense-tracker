@@ -227,6 +227,8 @@ const Index = () => {
           selectedDate={dashboardDate}
           onUpdateExpense={updateExpense}
           onDeleteExpense={deleteExpense}
+          customCategories={settings.customCategories}
+          customSubcategories={settings.customSubcategories}
         />
       )}
 
