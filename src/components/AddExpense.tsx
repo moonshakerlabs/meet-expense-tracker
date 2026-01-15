@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Category, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES } from "@/types/expense";
+import { Category, CategoryId, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES } from "@/types/expense";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ interface AddExpenseProps {
   currency: string;
   onSave: (data: {
     amount: number;
-    category: Category;
+    category: CategoryId;
     subcategory?: Subcategory;
     notes?: string;
     date: Date;
@@ -36,14 +36,14 @@ interface AddExpenseProps {
     currencySymbol: string;
   }) => void;
   onBack: () => void;
-  customSubcategories?: Record<Category, { id: string; label: string; icon: string }[]>;
+  customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
   hiddenCategories?: Category[];
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
 }
 
-const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<Category, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [] }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [] }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<Category | null>(null);
+  const [category, setCategory] = useState<CategoryId | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
   const [date, setDate] = useState<Date>(new Date());
   const [time, setTime] = useState(format(new Date(), "HH:mm"));
@@ -85,7 +85,7 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCategorySelect = (cat: Category) => {
+  const handleCategorySelect = (cat: CategoryId) => {
     setCategory(cat);
     setSubcategory(null); // Reset subcategory when category changes
     if (errors.category) setErrors((e) => ({ ...e, category: undefined }));
@@ -93,7 +93,8 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
 
   const getAvailableSubcategories = () => {
     if (!category) return [];
-    const defaultSubs = SUBCATEGORIES[category] || [];
+    // Check if it's a built-in category
+    const defaultSubs = SUBCATEGORIES[category as Category] || [];
     const customSubs = customSubcategories[category] || [];
     return [...defaultSubs, ...customSubs.map((c) => ({ id: c.id, label: c.label }))];
   };
@@ -115,7 +116,9 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
       currencySymbol: selectedCurrencySymbol,
     });
 
-    const categoryLabel = CATEGORIES.find((c) => c.id === category)?.label || category;
+    const builtInCat = CATEGORIES.find((c) => c.id === category);
+    const customCat = customCategories.find((c) => c.id === category);
+    const categoryLabel = builtInCat?.label || customCat?.label || category;
     toast({
       title: "Expense added",
       description: `${selectedCurrencySymbol}${parseFloat(amount).toFixed(2)} added to ${categoryLabel}`,
@@ -128,8 +131,8 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
   
   // Combine built-in and custom categories, filter hidden ones
   const allCategories = [
-    ...CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id)),
-    ...customCategories.map((cat) => ({ id: cat.id as Category, label: cat.label, icon: cat.icon, color: cat.color || "hsl(270, 50%, 50%)" })),
+    ...CATEGORIES.filter((cat) => !hiddenCategories.includes(cat.id)).map((cat) => ({ id: cat.id as CategoryId, label: cat.label, icon: cat.icon, color: "" })),
+    ...customCategories.map((cat) => ({ id: cat.id as CategoryId, label: cat.label, icon: cat.icon, color: cat.color || "hsl(270, 50%, 50%)" })),
   ];
   const visibleCategories = allCategories;
 
