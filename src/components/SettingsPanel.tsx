@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { exportToCSV, exportToJSON, exportToCSVFiltered, importFromCSV } from "@/lib/exportUtils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { Capacitor } from "@capacitor/core";
 
 interface SettingsPanelProps {
   settings: UserSettings;
@@ -58,6 +59,23 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   const [clearStep, setClearStep] = useState<"warning" | "confirm">("warning");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const processCSVContent = useCallback((content: string) => {
+    const { expenses: parsedExpenses, result } = importFromCSV(content);
+
+    if (!result.success) {
+      toast.error(result.errors[0] || "Failed to import CSV");
+      return;
+    }
+
+    const imported = onImportExpenses(parsedExpenses);
+    
+    if (result.skipped > 0) {
+      toast.success(`Imported ${imported} expenses (${result.skipped} skipped)`);
+    } else {
+      toast.success(`Imported ${imported} expenses`);
+    }
+  }, [onImportExpenses]);
+
   const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -69,21 +87,7 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
         toast.error("Failed to read file");
         return;
       }
-
-      const { expenses: parsedExpenses, result } = importFromCSV(content);
-
-      if (!result.success) {
-        toast.error(result.errors[0] || "Failed to import CSV");
-        return;
-      }
-
-      const imported = onImportExpenses(parsedExpenses);
-      
-      if (result.skipped > 0) {
-        toast.success(`Imported ${imported} expenses (${result.skipped} skipped)`);
-      } else {
-        toast.success(`Imported ${imported} expenses`);
-      }
+      processCSVContent(content);
     };
 
     reader.onerror = () => {
@@ -95,6 +99,14 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
     // Reset input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImportClick = async () => {
+    // On native platforms, use standard file input but with broader accept
+    // On web, use file input directly
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -424,7 +436,7 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={handleImportClick}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">

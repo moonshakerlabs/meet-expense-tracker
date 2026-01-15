@@ -194,6 +194,7 @@ const Index = () => {
           onBack={() => setCurrentView("dashboard")}
           customSubcategories={settings.customSubcategories}
           hiddenCategories={settings.hiddenCategories}
+          customCategories={settings.customCategories}
         />
       )}
 
@@ -270,6 +271,11 @@ const Index = () => {
           onToggleActive={toggleActive}
           getExpectedMonthlyTotal={getExpectedMonthlyTotal}
           onBack={() => setCurrentView("dashboard")}
+          recurringIncomes={incomes}
+          customIncomeSources={settings.customIncomeSources}
+          onUpdateIncome={updateIncome}
+          onDeleteIncome={deleteIncome}
+          getMonthlyIncome={getMonthlyIncome}
         />
       )}
 
