@@ -39,6 +39,7 @@ interface DashboardProps {
   onViewRecurring?: () => void;
   monthlyIncome?: number;
   userName?: string;
+  customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
 }
 
 const MONTHS = [
@@ -59,6 +60,7 @@ const Dashboard = ({
   onViewRecurring,
   monthlyIncome = 0,
   userName,
+  customCategories = [],
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
@@ -138,6 +140,15 @@ const Dashboard = ({
       categories: Array<{ name: string; value: number; category: string }> 
     }> = {};
     
+    // Helper to get category label
+    const getCategoryLabel = (categoryId: string): string => {
+      const builtIn = CATEGORIES.find((c) => c.id === categoryId);
+      if (builtIn) return builtIn.label;
+      const custom = customCategories.find((c) => c.id === categoryId);
+      if (custom) return custom.label;
+      return categoryId;
+    };
+    
     sourceExpenses.forEach((e) => {
       const curr = e.currency || defaultCurrency;
       const symbol = e.currencySymbol || defaultCurrencySymbol;
@@ -153,7 +164,7 @@ const Dashboard = ({
         existingCat.value += e.amount;
       } else {
         result[curr].categories.push({
-          name: CATEGORIES.find((c) => c.id === e.category)?.label || e.category,
+          name: getCategoryLabel(e.category),
           value: e.amount,
           category: e.category,
         });
@@ -165,25 +176,30 @@ const Dashboard = ({
     });
     
     return Object.values(result);
-  }, [monthlyExpenses, yearlyExpenses, viewMode, defaultCurrency, defaultCurrencySymbol]);
+  }, [monthlyExpenses, yearlyExpenses, viewMode, defaultCurrency, defaultCurrencySymbol, customCategories]);
 
   // Monthly breakdown for yearly view
   const monthlyBreakdown = useMemo(() => {
     if (viewMode !== "yearly") return [];
     
     const breakdown: Array<{ month: number; monthName: string; total: number; count: number }> = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
     
-    for (let m = 0; m < 12; m++) {
+    // For past years, show all 12 months; for current year, show up to current month
+    const maxMonth = year < currentYear ? 11 : currentMonth;
+    
+    for (let m = 0; m <= maxMonth; m++) {
       const monthExpenses = yearlyExpenses.filter(e => new Date(e.date).getMonth() === m);
       const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
-      if (total > 0 || m <= new Date().getMonth() || year < new Date().getFullYear()) {
-        breakdown.push({
-          month: m,
-          monthName: MONTHS[m],
-          total,
-          count: monthExpenses.length
-        });
-      }
+      // Show all months up to maxMonth, even if they have 0 expenses
+      breakdown.push({
+        month: m,
+        monthName: MONTHS[m],
+        total,
+        count: monthExpenses.length
+      });
     }
     
     return breakdown;
@@ -583,7 +599,10 @@ const Dashboard = ({
             </div>
             <div className="space-y-3">
               {recentExpenses.map((expense) => {
-                const category = CATEGORIES.find((c) => c.id === expense.category);
+                const builtInCategory = CATEGORIES.find((c) => c.id === expense.category);
+                const customCategory = customCategories.find((c) => c.id === expense.category);
+                const categoryLabel = builtInCategory?.label || customCategory?.label || expense.category;
+                const categoryIcon = builtInCategory?.icon || customCategory?.icon || "📦";
                 const subcategoryLabel = expense.subcategory
                   ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label
                   : null;
@@ -597,11 +616,11 @@ const Dashboard = ({
                           backgroundColor: `${CATEGORY_COLORS[expense.category as Category] || CATEGORY_COLORS.misc}20`,
                         }}
                       >
-                        {category?.icon || "📦"}
+                        {categoryIcon}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">
-                          {category?.label || expense.category}
+                          {categoryLabel}
                         </p>
                         {subcategoryLabel && (
                           <p className="text-xs text-muted-foreground truncate">
