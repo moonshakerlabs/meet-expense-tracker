@@ -183,6 +183,7 @@ const Index = () => {
           onViewRecurring={() => setCurrentView("recurring")}
           monthlyIncome={getMonthlyIncome()}
           userName={settings.userName}
+          customCategories={settings.customCategories}
         />
       )}
 
