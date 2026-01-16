@@ -235,15 +235,39 @@ export const importFromCSV = (
 
         const createdAt = createdAtStr ? new Date(createdAtStr) : new Date();
 
+        // Find the correct currency symbol based on currency code from CSV
+        const csvCurrencyCode = currencyStr || defaultCurrency;
+        const currencyData = [
+          { code: "USD", symbol: "$" },
+          { code: "EUR", symbol: "€" },
+          { code: "GBP", symbol: "£" },
+          { code: "INR", symbol: "₹" },
+          { code: "JPY", symbol: "¥" },
+          { code: "CAD", symbol: "C$" },
+          { code: "AUD", symbol: "A$" },
+          { code: "SGD", symbol: "S$" },
+          { code: "MYR", symbol: "RM" },
+          { code: "CHF", symbol: "CHF" },
+          { code: "THB", symbol: "฿" },
+          { code: "AED", symbol: "د.إ" },
+          { code: "PHP", symbol: "₱" },
+          { code: "NZD", symbol: "NZ$" },
+          { code: "RUB", symbol: "₽" },
+          { code: "CNY", symbol: "¥" },
+          { code: "PLN", symbol: "zł" },
+        ].find(c => c.code === csvCurrencyCode);
+        
+        const csvCurrencySymbol = currencyData?.symbol || defaultCurrencySymbol;
+
         expenses.push({
           amount,
           category: getCategoryId(categoryStr),
           notes: notesStr,
           date,
           createdAt: isNaN(createdAt.getTime()) ? new Date() : createdAt,
-          // Use CSV currency if present, otherwise use user's default currency
-          currency: currencyStr || defaultCurrency,
-          currencySymbol: defaultCurrencySymbol,
+          // Preserve the currency from CSV file
+          currency: csvCurrencyCode,
+          currencySymbol: csvCurrencySymbol,
         });
 
         result.imported++;

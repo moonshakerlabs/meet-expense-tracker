@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -28,8 +27,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ArrowLeft, Plus, CalendarClock, Trash2, Power, CalendarIcon, Wallet, Pencil } from "lucide-react";
-import { RecurringExpense, Category, FrequencyUnit, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, Income, INCOME_SOURCES, CustomIncomeSource } from "@/types/expense";
+import { ArrowLeft, Plus, CalendarClock, Trash2, Power, CalendarIcon } from "lucide-react";
+import { RecurringExpense, Category, FrequencyUnit, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS } from "@/types/expense";
 import { formatFrequency } from "@/hooks/useRecurringExpenses";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -53,12 +52,6 @@ interface RecurringExpensesPanelProps {
   onToggleActive: (id: string) => void;
   getExpectedMonthlyTotal: () => number;
   onBack: () => void;
-  // Income props
-  recurringIncomes?: Income[];
-  customIncomeSources?: CustomIncomeSource[];
-  onUpdateIncome?: (id: string, data: Partial<Income>) => void;
-  onDeleteIncome?: (id: string) => void;
-  getMonthlyIncome?: () => number;
 }
 
 const FREQUENCY_PRESETS = [
@@ -78,15 +71,9 @@ const RecurringExpensesPanel = ({
   onToggleActive,
   getExpectedMonthlyTotal,
   onBack,
-  recurringIncomes = [],
-  customIncomeSources = [],
-  onUpdateIncome,
-  onDeleteIncome,
-  getMonthlyIncome,
 }: RecurringExpensesPanelProps) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deletingIncomeId, setDeletingIncomeId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category>("bills");
@@ -97,35 +84,6 @@ const RecurringExpensesPanel = ({
 
   const expectedTotal = getExpectedMonthlyTotal();
   const activeCount = recurringExpenses.filter((r) => r.isActive).length;
-  const monthlyIncome = getMonthlyIncome ? getMonthlyIncome() : 0;
-  
-  // Combine built-in and custom sources
-  const allIncomeSources = [
-    ...INCOME_SOURCES,
-    ...customIncomeSources.map(s => ({ id: s.id, label: s.label, icon: s.icon }))
-  ];
-  
-  const getSourceInfo = (sourceId: string) => {
-    return allIncomeSources.find(s => s.id === sourceId) || { id: sourceId, label: sourceId, icon: "💰" };
-  };
-
-  const handleDeleteIncome = () => {
-    if (deletingIncomeId && onDeleteIncome) {
-      onDeleteIncome(deletingIncomeId);
-      toast({ title: "Deleted", description: "Recurring income removed" });
-      setDeletingIncomeId(null);
-    }
-  };
-  
-  const handleToggleIncomeRecurring = (income: Income) => {
-    if (onUpdateIncome) {
-      onUpdateIncome(income.id, { isRecurring: !income.isRecurring });
-      toast({ 
-        title: income.isRecurring ? "Recurring disabled" : "Recurring enabled",
-        description: `${getSourceInfo(income.source).label} is now ${income.isRecurring ? "one-time" : "recurring"}`
-      });
-    }
-  };
 
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, "");
@@ -304,64 +262,7 @@ const RecurringExpensesPanel = ({
           )}
         </div>
 
-        {/* Recurring Income Section */}
-        {recurringIncomes.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-              <Wallet className="w-4 h-4" />
-              Recurring Income
-            </h3>
-            <div className="space-y-3">
-              {recurringIncomes.map((income) => {
-                const sourceInfo = getSourceInfo(income.source);
-                return (
-                  <Card
-                    key={income.id}
-                    className={`p-4 rounded-2xl transition-opacity ${!income.isActive ? "opacity-50" : ""}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg">
-                        {sourceInfo.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{sourceInfo.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {income.isRecurring ? `Day ${income.recurringDay} of each month` : "One-time income"}
-                        </p>
-                        {income.autoUpdateEndDate && (
-                          <p className="text-xs text-muted-foreground">
-                            Until {format(new Date(income.autoUpdateEndDate), "MMM yyyy")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <p className="font-semibold text-emerald-600">
-                          +{formatCurrency(income.amount)}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-muted-foreground">Recurring</label>
-                          <Switch
-                            checked={income.isRecurring}
-                            onCheckedChange={() => handleToggleIncomeRecurring(income)}
-                            className="scale-75"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => setDeletingIncomeId(income.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Removed recurring income section - income is managed in Income panel */}
 
         {/* Add Button */}
         <Button
@@ -578,26 +479,6 @@ const RecurringExpensesPanel = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Income Confirmation */}
-      <AlertDialog open={!!deletingIncomeId} onOpenChange={(open) => !open && setDeletingIncomeId(null)}>
-        <AlertDialogContent className="max-w-[90%] rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Recurring Income?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove this income entry from the app.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="rounded-xl bg-destructive hover:bg-destructive/90"
-              onClick={handleDeleteIncome}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
