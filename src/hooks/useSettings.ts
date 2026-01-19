@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { UserSettings, CustomCategory, Category, CustomIncomeSource } from "@/types/expense";
+import { UserSettings, CustomCategory, Category, CustomIncomeSource, CurrencyIncome } from "@/types/expense";
 
 const STORAGE_KEY = "meet_settings";
 
@@ -31,6 +31,7 @@ const defaultSettings: UserSettings = {
   pinHash: undefined,
   customIncomeSources: [],
   userName: undefined,
+  currencyIncomes: [],
 };
 
 export const useSettings = () => {
@@ -59,6 +60,7 @@ export const useSettings = () => {
           pinHash: parsed.pinHash,
           customIncomeSources: parsed.customIncomeSources || [],
           userName: parsed.userName || undefined,
+          currencyIncomes: parsed.currencyIncomes || [],
         });
       }
     } catch (error) {
@@ -255,6 +257,30 @@ export const useSettings = () => {
     }));
   }, []);
 
+  // Currency income management
+  const addCurrencyIncome = useCallback((income: CurrencyIncome) => {
+    setSettings((prev) => ({
+      ...prev,
+      currencyIncomes: [...(prev.currencyIncomes || []), income],
+    }));
+  }, []);
+
+  const updateCurrencyIncome = useCallback((currency: string, amount: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      currencyIncomes: (prev.currencyIncomes || []).map((i) =>
+        i.currency === currency ? { ...i, amount } : i
+      ),
+    }));
+  }, []);
+
+  const removeCurrencyIncome = useCallback((currency: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      currencyIncomes: (prev.currencyIncomes || []).filter((i) => i.currency !== currency),
+    }));
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -277,5 +303,8 @@ export const useSettings = () => {
     addIncomeSource,
     removeIncomeSource,
     updateIncomeSource,
+    addCurrencyIncome,
+    updateCurrencyIncome,
+    removeCurrencyIncome,
   };
 };

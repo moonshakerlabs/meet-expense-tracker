@@ -83,6 +83,13 @@ export interface CustomIncomeSource {
   icon: string;
 }
 
+// Multi-currency income for settings
+export interface CurrencyIncome {
+  currency: string;
+  currencySymbol: string;
+  amount: number;
+}
+
 export interface UserSettings {
   currency: string;
   currencySymbol: string;
@@ -90,6 +97,7 @@ export interface UserSettings {
   hasCompletedOnboarding: boolean;
   hasSeenAppTour: boolean; // New: tracks if user has seen the 4-screen feature tour
   monthlyIncome?: number;
+  currencyIncomes?: CurrencyIncome[]; // Multi-currency income entries
   customCategories: CustomCategory[];
   customSubcategories: Record<string, CustomCategory[]>;
   hiddenCategories: Category[];

@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil } from "lucide-react";
+import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense, CurrencyIncome } from "@/types/expense";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil, Plus, Coins, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -43,9 +43,12 @@ interface SettingsPanelProps {
   onChangePin?: () => void;
   onViewPrivacy?: () => void;
   onViewAppTour?: () => void;
+  onAddCurrencyIncome?: (income: CurrencyIncome) => void;
+  onUpdateCurrencyIncome?: (currency: string, amount: number) => void;
+  onRemoveCurrencyIncome?: (currency: string) => void;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy, onViewAppTour }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy, onViewAppTour, onAddCurrencyIncome, onUpdateCurrencyIncome, onRemoveCurrencyIncome }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
@@ -58,6 +61,10 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [clearStep, setClearStep] = useState<"warning" | "confirm">("warning");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCurrencyIncomeSheet, setShowCurrencyIncomeSheet] = useState(false);
+  const [selectedIncomeCurrency, setSelectedIncomeCurrency] = useState("");
+  const [incomeAmount, setIncomeAmount] = useState("");
+  const [editingCurrencyIncome, setEditingCurrencyIncome] = useState<string | null>(null);
 
   const processCSVContent = useCallback((content: string) => {
     const { expenses: parsedExpenses, result } = importFromCSV(content);
@@ -219,6 +226,58 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
       toast.success("PIN protection disabled");
     }
   };
+
+  const handleAddCurrencyIncome = () => {
+    if (!selectedIncomeCurrency || !incomeAmount) {
+      toast.error("Please select a currency and enter an amount");
+      return;
+    }
+    const amount = parseFloat(incomeAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    const currencyData = CURRENCIES.find(c => c.code === selectedIncomeCurrency);
+    if (!currencyData) return;
+    
+    // Check if currency already exists
+    if (settings.currencyIncomes?.some(i => i.currency === selectedIncomeCurrency)) {
+      toast.error("Income for this currency already exists. Edit the existing entry.");
+      return;
+    }
+    
+    onAddCurrencyIncome?.({
+      currency: selectedIncomeCurrency,
+      currencySymbol: currencyData.symbol,
+      amount,
+    });
+    toast.success(`Income added for ${currencyData.name}`);
+    setSelectedIncomeCurrency("");
+    setIncomeAmount("");
+    setShowCurrencyIncomeSheet(false);
+  };
+
+  const handleUpdateCurrencyIncome = () => {
+    if (!editingCurrencyIncome || !incomeAmount) return;
+    const amount = parseFloat(incomeAmount);
+    if (isNaN(amount) || amount < 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    onUpdateCurrencyIncome?.(editingCurrencyIncome, amount);
+    toast.success("Income updated");
+    setEditingCurrencyIncome(null);
+    setIncomeAmount("");
+  };
+
+  const handleRemoveCurrencyIncome = (currency: string) => {
+    onRemoveCurrencyIncome?.(currency);
+    toast.success("Currency income removed");
+  };
+
+  const availableCurrenciesForIncome = CURRENCIES.filter(
+    c => !settings.currencyIncomes?.some(i => i.currency === c.code)
+  );
 
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
@@ -411,6 +470,110 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                   <p className="font-medium">Manage Categories</p>
                   <p className="text-sm text-muted-foreground">
                     Add custom categories
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
+        {/* Multi-Currency Income */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Monthly Income by Currency
+          </h3>
+          <Card className="rounded-2xl">
+            {/* Existing currency incomes */}
+            {settings.currencyIncomes && settings.currencyIncomes.length > 0 && (
+              <div className="divide-y divide-border">
+                {settings.currencyIncomes.map((income) => (
+                  <div key={income.currency} className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                        <span className="text-lg font-bold text-emerald-500">{income.currencySymbol}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {CURRENCIES.find(c => c.code === income.currency)?.name || income.currency}
+                        </p>
+                        {editingCurrencyIncome === income.currency ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              type="number"
+                              value={incomeAmount}
+                              onChange={(e) => setIncomeAmount(e.target.value)}
+                              className="w-28 h-8 text-sm"
+                              placeholder="Amount"
+                              min="0"
+                              step="0.01"
+                            />
+                            <Button size="sm" className="h-8" onClick={handleUpdateCurrencyIncome}>
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8"
+                              onClick={() => {
+                                setEditingCurrencyIncome(null);
+                                setIncomeAmount("");
+                              }}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {income.currencySymbol}{income.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {editingCurrencyIncome !== income.currency && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setEditingCurrencyIncome(income.currency);
+                            setIncomeAmount(income.amount.toString());
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveCurrencyIncome(income.currency)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add currency income button */}
+            <button
+              className={cn(
+                "w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors",
+                settings.currencyIncomes && settings.currencyIncomes.length > 0 && "border-t border-border"
+              )}
+              onClick={() => setShowCurrencyIncomeSheet(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Add Currency Income</p>
+                  <p className="text-sm text-muted-foreground">
+                    Set monthly income for a currency
                   </p>
                 </div>
               </div>
@@ -975,6 +1138,76 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Currency Income Sheet */}
+      <Sheet open={showCurrencyIncomeSheet} onOpenChange={(open) => {
+        setShowCurrencyIncomeSheet(open);
+        if (!open) {
+          setSelectedIncomeCurrency("");
+          setIncomeAmount("");
+        }
+      }}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Add Currency Income</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 pb-8">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Currency
+              </label>
+              <ScrollArea className="h-48 rounded-xl border border-border">
+                <div className="p-2 space-y-1">
+                  {availableCurrenciesForIncome.map((currency) => (
+                    <Card
+                      key={currency.code}
+                      className={cn(
+                        "p-3 cursor-pointer transition-all duration-200",
+                        selectedIncomeCurrency === currency.code
+                          ? "ring-2 ring-primary bg-primary/5"
+                          : "hover:bg-secondary"
+                      )}
+                      onClick={() => setSelectedIncomeCurrency(currency.code)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold">{currency.symbol}</span>
+                          <span className="text-sm">{currency.name}</span>
+                        </div>
+                        {selectedIncomeCurrency === currency.code && (
+                          <Check className="w-5 h-5 text-primary" />
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Monthly Income Amount
+              </label>
+              <Input
+                type="number"
+                value={incomeAmount}
+                onChange={(e) => setIncomeAmount(e.target.value)}
+                placeholder="Enter amount"
+                min="0"
+                step="0.01"
+                className="h-12"
+              />
+            </div>
+            <Button
+              className="w-full h-12"
+              onClick={handleAddCurrencyIncome}
+              disabled={!selectedIncomeCurrency || !incomeAmount}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Income
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

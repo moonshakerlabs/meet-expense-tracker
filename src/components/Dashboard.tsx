@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
-import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES } from "@/types/expense";
+import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencyIncome } from "@/types/expense";
 import {
   Select,
   SelectContent,
@@ -40,6 +40,7 @@ interface DashboardProps {
   monthlyIncome?: number;
   userName?: string;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
+  currencyIncomes?: CurrencyIncome[];
 }
 
 const MONTHS = [
@@ -61,6 +62,7 @@ const Dashboard = ({
   monthlyIncome = 0,
   userName,
   customCategories = [],
+  currencyIncomes = [],
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
@@ -412,36 +414,67 @@ const Dashboard = ({
         )}
 
         {/* Income & Savings Cards (only in monthly view) */}
-        {viewMode === "monthly" && monthlyIncome > 0 && (
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <Card
-              className="p-4 rounded-2xl cursor-pointer hover:bg-secondary/50 transition-colors"
-              onClick={onViewIncome}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                  <Wallet className="w-5 h-5 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Income</p>
-                  <p className="font-semibold">{formatCurrency(monthlyIncome)}</p>
-                </div>
+        {viewMode === "monthly" && (monthlyIncome > 0 || currencyIncomes.length > 0) && (
+          <div className="mb-4 space-y-3">
+            {/* Default currency income + savings */}
+            {monthlyIncome > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                <Card
+                  className="p-4 rounded-2xl cursor-pointer hover:bg-secondary/50 transition-colors"
+                  onClick={onViewIncome}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <Wallet className="w-5 h-5 text-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Income</p>
+                      <p className="font-semibold">{formatCurrency(monthlyIncome)}</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-4 rounded-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${savings >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+                      <PiggyBank className={`w-5 h-5 ${savings >= 0 ? 'text-emerald-500' : 'text-destructive'}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Savings</p>
+                      <p className={`font-semibold ${savings < 0 ? 'text-destructive' : ''}`}>
+                        {formatCurrency(Math.abs(savings))}
+                        {savings < 0 && ' (-)'}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
               </div>
-            </Card>
-            <Card className="p-4 rounded-2xl">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${savings >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
-                  <PiggyBank className={`w-5 h-5 ${savings >= 0 ? 'text-emerald-500' : 'text-destructive'}`} />
+            )}
+            
+            {/* Multi-currency incomes */}
+            {currencyIncomes.length > 0 && (
+              <Card className="p-4 rounded-2xl">
+                <p className="text-xs text-muted-foreground mb-3">Income by Currency</p>
+                <div className="space-y-2">
+                  {currencyIncomes.map((income) => {
+                    const currencyExpenses = monthlyExpenses
+                      .filter(e => e.currency === income.currency)
+                      .reduce((sum, e) => sum + e.amount, 0);
+                    const currencySavings = income.amount - currencyExpenses;
+                    return (
+                      <div key={income.currency} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-emerald-500">{income.currencySymbol}</span>
+                          <span className="font-medium">{income.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className={`text-sm ${currencySavings >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {currencySavings >= 0 ? '+' : ''}{income.currencySymbol}{currencySavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Savings</p>
-                  <p className={`font-semibold ${savings < 0 ? 'text-destructive' : ''}`}>
-                    {formatCurrency(Math.abs(savings))}
-                    {savings < 0 && ' (-)'}
-                  </p>
-                </div>
-              </div>
-            </Card>
+              </Card>
+            )}
           </div>
         )}
 
