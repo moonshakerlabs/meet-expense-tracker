@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CURRENCIES, COUNTRIES, LANGUAGES, UserSettings } from "@/types/expense";
-import { Check, Sun, Moon, Smartphone, ChevronRight, Search } from "lucide-react";
+import { Check, Sun, Moon, Smartphone, ChevronRight, ChevronLeft, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -41,6 +41,14 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
   const handleCurrencyNext = () => {
     setStep("theme");
+  };
+
+  const handleBack = () => {
+    const stepOrder: Step[] = ["welcome", "name", "country", "currency", "theme"];
+    const currentIndex = stepOrder.indexOf(step);
+    if (currentIndex > 0) {
+      setStep(stepOrder[currentIndex - 1]);
+    }
   };
 
   const handleComplete = () => {
@@ -119,14 +127,24 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             className="rounded-xl h-14 text-lg text-center mb-6"
             autoFocus
           />
-          <Button
-            size="lg"
-            className="w-full rounded-2xl h-14 text-lg font-semibold"
-            onClick={() => setStep("country")}
-          >
-            Continue
-            <ChevronRight className="ml-2 w-5 h-5" />
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-2xl h-14 px-6"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1 rounded-2xl h-14 text-lg font-semibold"
+              onClick={() => setStep("country")}
+            >
+              Continue
+              <ChevronRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
         </div>
       )}
 
@@ -204,15 +222,25 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             </div>
           )}
 
-          <Button
-            size="lg"
-            className="w-full rounded-2xl h-14 text-lg font-semibold"
-            onClick={handleCountryNext}
-            disabled={!selectedCountry}
-          >
-            Continue
-            <ChevronRight className="ml-2 w-5 h-5" />
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-2xl h-14 px-6"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1 rounded-2xl h-14 text-lg font-semibold"
+              onClick={handleCountryNext}
+              disabled={!selectedCountry}
+            >
+              Continue
+              <ChevronRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
         </div>
       )}
 
@@ -249,14 +277,24 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
               ))}
             </div>
           </ScrollArea>
-          <Button
-            size="lg"
-            className="w-full rounded-2xl h-14 text-lg font-semibold"
-            onClick={handleCurrencyNext}
-          >
-            Continue
-            <ChevronRight className="ml-2 w-5 h-5" />
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-2xl h-14 px-6"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1 rounded-2xl h-14 text-lg font-semibold"
+              onClick={handleCurrencyNext}
+            >
+              Continue
+              <ChevronRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
         </div>
       )}
 
@@ -298,14 +336,24 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
               </Card>
             ))}
           </div>
-          <Button
-            size="lg"
-            className="w-full rounded-2xl h-14 text-lg font-semibold"
-            onClick={handleComplete}
-          >
-            Start Tracking
-            <ChevronRight className="ml-2 w-5 h-5" />
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-2xl h-14 px-6"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1 rounded-2xl h-14 text-lg font-semibold"
+              onClick={handleComplete}
+            >
+              Start Tracking
+              <ChevronRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
         </div>
       )}
     </div>
