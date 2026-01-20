@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Smartphone, PieChart, Globe, TrendingUp } from "lucide-react";
+import { ChevronRight, ChevronLeft, Smartphone, PieChart, Globe, TrendingUp } from "lucide-react";
 
 interface AppOnboardingProps {
   onComplete: () => void;
@@ -90,6 +90,12 @@ const AppOnboarding = ({ onComplete, onSkip }: AppOnboardingProps) => {
     }
   };
 
+  const handleBack = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(prev => prev - 1);
+    }
+  };
+
   const isLastSlide = currentSlide === slides.length - 1;
   const currentSlideData = slides[currentSlide];
   const IconComponent = currentSlideData.icon;
@@ -156,15 +162,27 @@ const AppOnboarding = ({ onComplete, onSkip }: AppOnboardingProps) => {
           ))}
         </div>
 
-        {/* Action Button */}
-        <Button
-          size="lg"
-          className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
-          onClick={handleNext}
-        >
-          {isLastSlide ? "Get Started" : "Next"}
-          <ChevronRight className="ml-2 w-5 h-5" />
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex gap-3">
+          {currentSlide > 0 && (
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-2xl h-14 px-6"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <Button
+            size="lg"
+            className={`${currentSlide > 0 ? 'flex-1' : 'w-full'} rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0`}
+            onClick={handleNext}
+          >
+            {isLastSlide ? "Get Started" : "Next"}
+            <ChevronRight className="ml-2 w-5 h-5" />
+          </Button>
+        </div>
       </div>
     </div>
   );
