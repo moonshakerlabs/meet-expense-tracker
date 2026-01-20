@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense, CurrencyIncome } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil, Plus, Coins, X } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil, Plus, Coins, X, FileText } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +21,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useRef, useState, useCallback } from "react";
 import { exportToCSV, exportToJSON, exportToCSVFiltered, importFromCSV } from "@/lib/exportUtils";
+import { exportToPDF } from "@/lib/pdfExport";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,10 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   const [selectedIncomeCurrency, setSelectedIncomeCurrency] = useState("");
   const [incomeAmount, setIncomeAmount] = useState("");
   const [editingCurrencyIncome, setEditingCurrencyIncome] = useState<string | null>(null);
+  const [showPdfSheet, setShowPdfSheet] = useState(false);
+  const [pdfStartDate, setPdfStartDate] = useState<Date | undefined>(undefined);
+  const [pdfEndDate, setPdfEndDate] = useState<Date | undefined>(undefined);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const processCSVContent = useCallback((content: string) => {
     const { expenses: parsedExpenses, result } = importFromCSV(content);
@@ -133,6 +138,32 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
     }
     exportToJSON(expenses, settings.currencySymbol, settings.currency);
     toast.success(`Exported ${expenses.length} expenses as JSON`);
+  };
+
+  const handleExportPDF = async () => {
+    setIsExportingPdf(true);
+    try {
+      const success = await exportToPDF({
+        expenses,
+        currencyIncomes: settings.currencyIncomes || [],
+        defaultCurrency: settings.currency,
+        defaultCurrencySymbol: settings.currencySymbol,
+        monthlyIncome: settings.monthlyIncome || 0,
+        startDate: pdfStartDate,
+        endDate: pdfEndDate,
+      });
+      if (success) {
+        toast.success("PDF report exported successfully");
+        setShowPdfSheet(false);
+        setPdfStartDate(undefined);
+        setPdfEndDate(undefined);
+      }
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast.error("Failed to export PDF");
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const handleExportFiltered = () => {
@@ -646,6 +677,25 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                   <p className="font-medium">Export as JSON</p>
                   <p className="text-sm text-muted-foreground">
                     {expenses.length} expenses
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors disabled:opacity-50"
+              onClick={() => setShowPdfSheet(true)}
+              disabled={expenses.length === 0}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-red-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Export PDF Report</p>
+                  <p className="text-sm text-muted-foreground">
+                    Full report with currency conversion
                   </p>
                 </div>
               </div>
@@ -1204,6 +1254,100 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Income
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* PDF Export Sheet */}
+      <Sheet open={showPdfSheet} onOpenChange={(open) => {
+        setShowPdfSheet(open);
+        if (!open) {
+          setPdfStartDate(undefined);
+          setPdfEndDate(undefined);
+        }
+      }}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Export PDF Report</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 pb-8">
+            <p className="text-sm text-muted-foreground">
+              Generate a comprehensive PDF report with:
+            </p>
+            <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+              <li>Income by currency</li>
+              <li>Expenses by currency</li>
+              <li>Category breakdown per currency</li>
+              <li>Savings calculation</li>
+              <li>Converted totals in your default currency ({settings.currency})</li>
+            </ul>
+            
+            <div className="space-y-3 pt-2">
+              <p className="text-sm font-medium">Date Range (optional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal h-12",
+                        !pdfStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {pdfStartDate ? format(pdfStartDate, "MMM d, yyyy") : "Start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={pdfStartDate}
+                      onSelect={setPdfStartDate}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal h-12",
+                        !pdfEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {pdfEndDate ? format(pdfEndDate, "MMM d, yyyy") : "End date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <CalendarComponent
+                      mode="single"
+                      selected={pdfEndDate}
+                      onSelect={setPdfEndDate}
+                      disabled={(date) => date > new Date() || (pdfStartDate ? date < pdfStartDate : false)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-12"
+              onClick={handleExportPDF}
+              disabled={isExportingPdf}
+            >
+              {isExportingPdf ? (
+                <>Generating PDF...</>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Generate PDF Report
+                </>
+              )}
             </Button>
           </div>
         </SheetContent>
