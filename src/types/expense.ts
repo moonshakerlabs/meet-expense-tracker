@@ -90,6 +90,13 @@ export interface CurrencyIncome {
   amount: number;
 }
 
+// Multi-currency savings for settings
+export interface CurrencySavings {
+  currency: string;
+  currencySymbol: string;
+  amount: number;
+}
+
 export interface UserSettings {
   currency: string;
   currencySymbol: string;
@@ -98,6 +105,7 @@ export interface UserSettings {
   hasSeenAppTour: boolean; // New: tracks if user has seen the 4-screen feature tour
   monthlyIncome?: number;
   currencyIncomes?: CurrencyIncome[]; // Multi-currency income entries
+  currencySavings?: CurrencySavings[]; // Multi-currency savings entries
   customCategories: CustomCategory[];
   customSubcategories: Record<string, CustomCategory[]>;
   hiddenCategories: Category[];

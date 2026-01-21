@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense, CurrencyIncome } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil, Plus, Coins, X, FileText } from "lucide-react";
+import { UserSettings, CURRENCIES, COUNTRIES, LANGUAGES, Expense, CurrencyIncome, CurrencySavings } from "@/types/expense";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Download, FileJson, Trash2, Calendar, AlertTriangle, Upload, Wallet, RefreshCw, FolderOpen, Globe, Languages, Lock, Key, Shield, BookOpen, User, Pencil, Plus, X, FileText, PiggyBank } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -47,9 +47,12 @@ interface SettingsPanelProps {
   onAddCurrencyIncome?: (income: CurrencyIncome) => void;
   onUpdateCurrencyIncome?: (currency: string, amount: number) => void;
   onRemoveCurrencyIncome?: (currency: string) => void;
+  onAddCurrencySavings?: (savings: CurrencySavings) => void;
+  onUpdateCurrencySavings?: (currency: string, amount: number) => void;
+  onRemoveCurrencySavings?: (currency: string) => void;
 }
 
-const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy, onViewAppTour, onAddCurrencyIncome, onUpdateCurrencyIncome, onRemoveCurrencyIncome }: SettingsPanelProps) => {
+const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAllData, onImportExpenses, onManageCategories, onViewIncome, onViewRecurring, onEnablePin, onDisablePin, onChangePin, onViewPrivacy, onViewAppTour, onAddCurrencyIncome, onUpdateCurrencyIncome, onRemoveCurrencyIncome, onAddCurrencySavings, onUpdateCurrencySavings, onRemoveCurrencySavings }: SettingsPanelProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
@@ -70,6 +73,11 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
   const [pdfStartDate, setPdfStartDate] = useState<Date | undefined>(undefined);
   const [pdfEndDate, setPdfEndDate] = useState<Date | undefined>(undefined);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  // Savings state
+  const [showSavingsSheet, setShowSavingsSheet] = useState(false);
+  const [selectedSavingsCurrency, setSelectedSavingsCurrency] = useState("");
+  const [savingsAmount, setSavingsAmount] = useState("");
+  const [editingSavings, setEditingSavings] = useState<string | null>(null);
 
   const processCSVContent = useCallback((content: string) => {
     const { expenses: parsedExpenses, result } = importFromCSV(content);
@@ -310,6 +318,58 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
     c => !settings.currencyIncomes?.some(i => i.currency === c.code)
   );
 
+  // Savings handlers
+  const handleAddSavings = () => {
+    if (!selectedSavingsCurrency || !savingsAmount) {
+      toast.error("Please select a currency and enter an amount");
+      return;
+    }
+    const amount = parseFloat(savingsAmount);
+    if (isNaN(amount) || amount < 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    const currencyData = CURRENCIES.find(c => c.code === selectedSavingsCurrency);
+    if (!currencyData) return;
+    
+    if (settings.currencySavings?.some(s => s.currency === selectedSavingsCurrency)) {
+      toast.error("Savings for this currency already exists. Edit the existing entry.");
+      return;
+    }
+    
+    onAddCurrencySavings?.({
+      currency: selectedSavingsCurrency,
+      currencySymbol: currencyData.symbol,
+      amount,
+    });
+    toast.success(`Savings added for ${currencyData.name}`);
+    setSelectedSavingsCurrency("");
+    setSavingsAmount("");
+    setShowSavingsSheet(false);
+  };
+
+  const handleUpdateSavings = () => {
+    if (!editingSavings || !savingsAmount) return;
+    const amount = parseFloat(savingsAmount);
+    if (isNaN(amount) || amount < 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    onUpdateCurrencySavings?.(editingSavings, amount);
+    toast.success("Savings updated");
+    setEditingSavings(null);
+    setSavingsAmount("");
+  };
+
+  const handleRemoveSavings = (currency: string) => {
+    onRemoveCurrencySavings?.(currency);
+    toast.success("Savings removed");
+  };
+
+  const availableCurrenciesForSavings = CURRENCIES.filter(
+    c => !settings.currencySavings?.some(s => s.currency === c.code)
+  );
+
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
       {/* Header */}
@@ -509,37 +569,37 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
           </Card>
         </div>
 
-        {/* Multi-Currency Income */}
+        {/* Savings by Currency */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
-            Monthly Income by Currency
+            Savings by Currency
           </h3>
           <Card className="rounded-2xl">
-            {/* Existing currency incomes */}
-            {settings.currencyIncomes && settings.currencyIncomes.length > 0 && (
+            {/* Existing savings */}
+            {settings.currencySavings && settings.currencySavings.length > 0 && (
               <div className="divide-y divide-border">
-                {settings.currencyIncomes.map((income) => (
-                  <div key={income.currency} className="p-4 flex items-center justify-between">
+                {settings.currencySavings.map((saving) => (
+                  <div key={saving.currency} className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                        <span className="text-lg font-bold text-emerald-500">{income.currencySymbol}</span>
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                        <PiggyBank className="w-5 h-5 text-amber-500" />
                       </div>
                       <div>
                         <p className="font-medium">
-                          {CURRENCIES.find(c => c.code === income.currency)?.name || income.currency}
+                          {CURRENCIES.find(c => c.code === saving.currency)?.name || saving.currency}
                         </p>
-                        {editingCurrencyIncome === income.currency ? (
+                        {editingSavings === saving.currency ? (
                           <div className="flex items-center gap-2 mt-1">
                             <Input
                               type="number"
-                              value={incomeAmount}
-                              onChange={(e) => setIncomeAmount(e.target.value)}
+                              value={savingsAmount}
+                              onChange={(e) => setSavingsAmount(e.target.value)}
                               className="w-28 h-8 text-sm"
                               placeholder="Amount"
                               min="0"
                               step="0.01"
                             />
-                            <Button size="sm" className="h-8" onClick={handleUpdateCurrencyIncome}>
+                            <Button size="sm" className="h-8" onClick={handleUpdateSavings}>
                               <Check className="w-4 h-4" />
                             </Button>
                             <Button 
@@ -547,8 +607,8 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                               variant="ghost" 
                               className="h-8"
                               onClick={() => {
-                                setEditingCurrencyIncome(null);
-                                setIncomeAmount("");
+                                setEditingSavings(null);
+                                setSavingsAmount("");
                               }}
                             >
                               <X className="w-4 h-4" />
@@ -556,20 +616,20 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">
-                            {income.currencySymbol}{income.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {saving.currencySymbol}{saving.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                         )}
                       </div>
                     </div>
-                    {editingCurrencyIncome !== income.currency && (
+                    {editingSavings !== saving.currency && (
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => {
-                            setEditingCurrencyIncome(income.currency);
-                            setIncomeAmount(income.amount.toString());
+                            setEditingSavings(saving.currency);
+                            setSavingsAmount(saving.amount.toString());
                           }}
                         >
                           <Pencil className="w-4 h-4" />
@@ -578,7 +638,7 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveCurrencyIncome(income.currency)}
+                          onClick={() => handleRemoveSavings(saving.currency)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -589,22 +649,22 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
               </div>
             )}
             
-            {/* Add currency income button */}
+            {/* Add savings button */}
             <button
               className={cn(
                 "w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors",
-                settings.currencyIncomes && settings.currencyIncomes.length > 0 && "border-t border-border"
+                settings.currencySavings && settings.currencySavings.length > 0 && "border-t border-border"
               )}
-              onClick={() => setShowCurrencyIncomeSheet(true)}
+              onClick={() => setShowSavingsSheet(true)}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Plus className="w-5 h-5 text-primary" />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium">Add Currency Income</p>
+                  <p className="font-medium">Add Savings</p>
                   <p className="text-sm text-muted-foreground">
-                    Set monthly income for a currency
+                    Track savings for a currency
                   </p>
                 </div>
               </div>
@@ -1189,17 +1249,17 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Currency Income Sheet */}
-      <Sheet open={showCurrencyIncomeSheet} onOpenChange={(open) => {
-        setShowCurrencyIncomeSheet(open);
+      {/* Savings Sheet */}
+      <Sheet open={showSavingsSheet} onOpenChange={(open) => {
+        setShowSavingsSheet(open);
         if (!open) {
-          setSelectedIncomeCurrency("");
-          setIncomeAmount("");
+          setSelectedSavingsCurrency("");
+          setSavingsAmount("");
         }
       }}>
         <SheetContent side="bottom" className="rounded-t-3xl">
           <SheetHeader className="mb-4">
-            <SheetTitle>Add Currency Income</SheetTitle>
+            <SheetTitle>Add Savings</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 pb-8">
             <div>
@@ -1208,23 +1268,23 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
               </label>
               <ScrollArea className="h-48 rounded-xl border border-border">
                 <div className="p-2 space-y-1">
-                  {availableCurrenciesForIncome.map((currency) => (
+                  {availableCurrenciesForSavings.map((currency) => (
                     <Card
                       key={currency.code}
                       className={cn(
                         "p-3 cursor-pointer transition-all duration-200",
-                        selectedIncomeCurrency === currency.code
+                        selectedSavingsCurrency === currency.code
                           ? "ring-2 ring-primary bg-primary/5"
                           : "hover:bg-secondary"
                       )}
-                      onClick={() => setSelectedIncomeCurrency(currency.code)}
+                      onClick={() => setSelectedSavingsCurrency(currency.code)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <span className="text-lg font-bold">{currency.symbol}</span>
                           <span className="text-sm">{currency.name}</span>
                         </div>
-                        {selectedIncomeCurrency === currency.code && (
+                        {selectedSavingsCurrency === currency.code && (
                           <Check className="w-5 h-5 text-primary" />
                         )}
                       </div>
@@ -1235,12 +1295,12 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Monthly Income Amount
+                Savings Amount
               </label>
               <Input
                 type="number"
-                value={incomeAmount}
-                onChange={(e) => setIncomeAmount(e.target.value)}
+                value={savingsAmount}
+                onChange={(e) => setSavingsAmount(e.target.value)}
                 placeholder="Enter amount"
                 min="0"
                 step="0.01"
@@ -1249,11 +1309,11 @@ const SettingsPanel = ({ settings, onUpdateSettings, onBack, expenses, onClearAl
             </div>
             <Button
               className="w-full h-12"
-              onClick={handleAddCurrencyIncome}
-              disabled={!selectedIncomeCurrency || !incomeAmount}
+              onClick={handleAddSavings}
+              disabled={!selectedSavingsCurrency || !savingsAmount}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Income
+              Add Savings
             </Button>
           </div>
         </SheetContent>
