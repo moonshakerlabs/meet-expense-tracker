@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
-import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencyIncome } from "@/types/expense";
+import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencyIncome, CurrencySavings } from "@/types/expense";
 import {
   Select,
   SelectContent,
@@ -41,6 +41,7 @@ interface DashboardProps {
   userName?: string;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   currencyIncomes?: CurrencyIncome[];
+  currencySavings?: CurrencySavings[];
 }
 
 const MONTHS = [
@@ -63,6 +64,7 @@ const Dashboard = ({
   userName,
   customCategories = [],
   currencyIncomes = [],
+  currencySavings = [],
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
@@ -414,7 +416,7 @@ const Dashboard = ({
         )}
 
         {/* Income & Savings Cards (only in monthly view) */}
-        {viewMode === "monthly" && (monthlyIncome > 0 || currencyIncomes.length > 0) && (
+        {viewMode === "monthly" && (monthlyIncome > 0 || currencyIncomes.length > 0 || currencySavings.length > 0) && (
           <div className="mb-4 space-y-3">
             {/* Default currency income + savings */}
             {monthlyIncome > 0 && (
@@ -455,20 +457,43 @@ const Dashboard = ({
               <Card className="p-4 rounded-2xl">
                 <p className="text-xs text-muted-foreground mb-3">Income by Currency</p>
                 <div className="space-y-2">
-                  {currencyIncomes.map((income) => {
+                  {currencyIncomes.map((income) => (
+                    <div key={income.currency} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="w-4 h-4 text-emerald-500" />
+                        <span className="text-sm">{income.currency}</span>
+                      </div>
+                      <span className="font-medium text-emerald-600">
+                        {income.currencySymbol}{income.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Savings by Currency (from settings - expenses) */}
+            {currencySavings.length > 0 && (
+              <Card className="p-4 rounded-2xl">
+                <p className="text-xs text-muted-foreground mb-3">Savings by Currency</p>
+                <div className="space-y-2">
+                  {currencySavings.map((saving) => {
                     const currencyExpenses = monthlyExpenses
-                      .filter(e => e.currency === income.currency)
+                      .filter(e => e.currency === saving.currency)
                       .reduce((sum, e) => sum + e.amount, 0);
-                    const currencySavings = income.amount - currencyExpenses;
+                    const netSavings = saving.amount - currencyExpenses;
                     return (
-                      <div key={income.currency} className="flex items-center justify-between">
+                      <div key={saving.currency} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-emerald-500">{income.currencySymbol}</span>
-                          <span className="font-medium">{income.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <PiggyBank className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm">{saving.currency}</span>
+                          <span className="text-xs text-muted-foreground">
+                            (Base: {saving.currencySymbol}{saving.amount.toLocaleString()})
+                          </span>
                         </div>
-                        <div className={`text-sm ${currencySavings >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                          {currencySavings >= 0 ? '+' : ''}{income.currencySymbol}{currencySavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
+                        <span className={`font-medium ${netSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {netSavings >= 0 ? '+' : ''}{saving.currencySymbol}{netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                       </div>
                     );
                   })}

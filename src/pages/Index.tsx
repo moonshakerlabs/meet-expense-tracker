@@ -44,7 +44,7 @@ const Index = () => {
   const [showExitDialog, setShowExitDialog] = useState(false);
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
@@ -185,6 +185,7 @@ const Index = () => {
           userName={settings.userName}
           customCategories={settings.customCategories}
           currencyIncomes={settings.currencyIncomes}
+          currencySavings={settings.currencySavings}
         />
       )}
 
@@ -219,6 +220,9 @@ const Index = () => {
           onAddCurrencyIncome={addCurrencyIncome}
           onUpdateCurrencyIncome={updateCurrencyIncome}
           onRemoveCurrencyIncome={removeCurrencyIncome}
+          onAddCurrencySavings={addCurrencySavings}
+          onUpdateCurrencySavings={updateCurrencySavings}
+          onRemoveCurrencySavings={removeCurrencySavings}
         />
       )}
 

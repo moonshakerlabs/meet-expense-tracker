@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { UserSettings, CustomCategory, Category, CustomIncomeSource, CurrencyIncome } from "@/types/expense";
+import { UserSettings, CustomCategory, Category, CustomIncomeSource, CurrencyIncome, CurrencySavings } from "@/types/expense";
 
 const STORAGE_KEY = "meet_settings";
 
@@ -32,6 +32,7 @@ const defaultSettings: UserSettings = {
   customIncomeSources: [],
   userName: undefined,
   currencyIncomes: [],
+  currencySavings: [],
 };
 
 export const useSettings = () => {
@@ -61,6 +62,7 @@ export const useSettings = () => {
           customIncomeSources: parsed.customIncomeSources || [],
           userName: parsed.userName || undefined,
           currencyIncomes: parsed.currencyIncomes || [],
+          currencySavings: parsed.currencySavings || [],
         });
       }
     } catch (error) {
@@ -281,6 +283,30 @@ export const useSettings = () => {
     }));
   }, []);
 
+  // Currency savings management
+  const addCurrencySavings = useCallback((savings: CurrencySavings) => {
+    setSettings((prev) => ({
+      ...prev,
+      currencySavings: [...(prev.currencySavings || []), savings],
+    }));
+  }, []);
+
+  const updateCurrencySavings = useCallback((currency: string, amount: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      currencySavings: (prev.currencySavings || []).map((s) =>
+        s.currency === currency ? { ...s, amount } : s
+      ),
+    }));
+  }, []);
+
+  const removeCurrencySavings = useCallback((currency: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      currencySavings: (prev.currencySavings || []).filter((s) => s.currency !== currency),
+    }));
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -306,5 +332,8 @@ export const useSettings = () => {
     addCurrencyIncome,
     updateCurrencyIncome,
     removeCurrencyIncome,
+    addCurrencySavings,
+    updateCurrencySavings,
+    removeCurrencySavings,
   };
 };
