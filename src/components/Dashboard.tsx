@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
+import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu } from "lucide-react";
 import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencyIncome, CurrencySavings } from "@/types/expense";
 import {
   Select,
@@ -34,6 +34,7 @@ interface DashboardProps {
   onAddExpense: () => void;
   onViewExpenses: (date: Date) => void;
   onOpenSettings: () => void;
+  onOpenFinanceMenu?: () => void;
   onViewCategory?: (category: Category, date: Date) => void;
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
@@ -42,6 +43,7 @@ interface DashboardProps {
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   currencyIncomes?: CurrencyIncome[];
   currencySavings?: CurrencySavings[];
+  country?: string;
 }
 
 const MONTHS = [
@@ -57,6 +59,7 @@ const Dashboard = ({
   onAddExpense,
   onViewExpenses,
   onOpenSettings,
+  onOpenFinanceMenu,
   onViewCategory,
   onViewIncome,
   onViewRecurring,
@@ -65,6 +68,7 @@ const Dashboard = ({
   customCategories = [],
   currencyIncomes = [],
   currencySavings = [],
+  country,
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
@@ -259,14 +263,24 @@ const Dashboard = ({
             <p className="text-sm text-muted-foreground">Welcome back{userName ? `, ${userName}` : ''}</p>
             <h1 className="font-display font-bold text-2xl">Dashboard</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-xl"
-            onClick={onOpenSettings}
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl"
+              onClick={onOpenSettings}
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl"
+              onClick={onOpenFinanceMenu}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Month/Year Navigation with Dropdowns */}
