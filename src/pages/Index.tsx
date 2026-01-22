@@ -5,6 +5,7 @@ import AppOnboarding from "@/components/AppOnboarding";
 import Dashboard from "@/components/Dashboard";
 import AddExpense from "@/components/AddExpense";
 import SettingsPanel from "@/components/SettingsPanel";
+import FinanceMenu from "@/components/FinanceMenu";
 import ExpenseList from "@/components/ExpenseList";
 import CategoryDetailView from "@/components/CategoryDetailView";
 import IncomePanel from "@/components/IncomePanel";
@@ -31,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type View = "dashboard" | "add-expense" | "settings" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy" | "app-tour";
+type View = "dashboard" | "add-expense" | "settings" | "finance-menu" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy" | "app-tour";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -53,6 +54,7 @@ const Index = () => {
     switch (currentView) {
       case "add-expense":
       case "settings":
+      case "finance-menu":
       case "expense-list":
       case "income":
       case "recurring":
@@ -60,6 +62,7 @@ const Index = () => {
       case "category-detail":
         return () => setCurrentView("dashboard");
       case "manage-categories":
+        return () => setCurrentView("finance-menu");
       case "privacy":
         return () => setCurrentView("settings");
       case "pin-setup":
@@ -178,6 +181,7 @@ const Index = () => {
           onAddExpense={() => setCurrentView("add-expense")}
           onViewExpenses={handleViewExpenses}
           onOpenSettings={() => setCurrentView("settings")}
+          onOpenFinanceMenu={() => setCurrentView("finance-menu")}
           onViewCategory={handleViewCategory}
           onViewIncome={() => setCurrentView("income")}
           onViewRecurring={() => setCurrentView("recurring")}
@@ -186,6 +190,7 @@ const Index = () => {
           customCategories={settings.customCategories}
           currencyIncomes={settings.currencyIncomes}
           currencySavings={settings.currencySavings}
+          country={settings.country}
         />
       )}
 
@@ -198,6 +203,7 @@ const Index = () => {
           customSubcategories={settings.customSubcategories}
           hiddenCategories={settings.hiddenCategories}
           customCategories={settings.customCategories}
+          country={settings.country}
         />
       )}
 
@@ -207,16 +213,24 @@ const Index = () => {
           onUpdateSettings={updateSettings}
           onBack={() => setCurrentView("dashboard")}
           expenses={expenses}
-          onClearAllData={handleClearAllData}
-          onImportExpenses={importExpenses}
-          onManageCategories={() => setCurrentView("manage-categories")}
-          onViewIncome={() => setCurrentView("income")}
-          onViewRecurring={() => setCurrentView("recurring")}
           onEnablePin={enablePin}
           onDisablePin={disablePin}
           onChangePin={handleChangePin}
           onViewPrivacy={() => setCurrentView("privacy")}
           onViewAppTour={handleViewAppTour}
+        />
+      )}
+
+      {currentView === "finance-menu" && (
+        <FinanceMenu
+          settings={settings}
+          onUpdateSettings={updateSettings}
+          onBack={() => setCurrentView("dashboard")}
+          expenses={expenses}
+          onImportExpenses={importExpenses}
+          onManageCategories={() => setCurrentView("manage-categories")}
+          onViewIncome={() => setCurrentView("income")}
+          onViewRecurring={() => setCurrentView("recurring")}
           onAddCurrencyIncome={addCurrencyIncome}
           onUpdateCurrencyIncome={updateCurrencyIncome}
           onRemoveCurrencyIncome={removeCurrencyIncome}
@@ -264,7 +278,7 @@ const Index = () => {
           onDeleteIncome={deleteIncome}
           onStopRecurring={stopRecurringIncome}
           getMonthlyIncome={getMonthlyIncome}
-          onBack={() => setCurrentView("dashboard")}
+          onBack={() => setCurrentView("finance-menu")}
           onAddIncomeSource={addIncomeSource}
           onRemoveIncomeSource={removeIncomeSource}
           onUpdateIncomeSource={updateIncomeSource}
@@ -281,7 +295,7 @@ const Index = () => {
           onDelete={deleteRecurringExpense}
           onToggleActive={toggleActive}
           getExpectedMonthlyTotal={getExpectedMonthlyTotal}
-          onBack={() => setCurrentView("dashboard")}
+          onBack={() => setCurrentView("finance-menu")}
         />
       )}
 
@@ -297,7 +311,7 @@ const Index = () => {
           onUpdateSubcategory={updateSubcategory}
           onHideCategory={hideCategory}
           onShowCategory={showCategory}
-          onBack={() => setCurrentView("settings")}
+          onBack={() => setCurrentView("finance-menu")}
         />
       )}
 

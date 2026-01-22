@@ -117,36 +117,39 @@ export interface UserSettings {
   userName?: string; // User's display name
 }
 
+// Countries sorted alphabetically by name
 export const COUNTRIES = [
-  // English-speaking countries
-  { code: "US", name: "United States", flag: "🇺🇸", currency: "USD", languages: ["en"] },
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧", currency: "GBP", languages: ["en"] },
   { code: "AU", name: "Australia", flag: "🇦🇺", currency: "AUD", languages: ["en"] },
-  { code: "CA", name: "Canada", flag: "🇨🇦", currency: "CAD", languages: ["en"] },
-  { code: "NZ", name: "New Zealand", flag: "🇳🇿", currency: "NZD", languages: ["en"] },
-  { code: "IN", name: "India", flag: "🇮🇳", currency: "INR", languages: ["en"] },
-  
-  // Non-English speaking countries (English + regional)
-  { code: "RU", name: "Russia", flag: "🇷🇺", currency: "RUB", languages: ["en", "ru"] },
-  { code: "CN", name: "China", flag: "🇨🇳", currency: "CNY", languages: ["en", "zh"] },
-  { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR", languages: ["en", "de"] },
-  { code: "FR", name: "France", flag: "🇫🇷", currency: "EUR", languages: ["en", "fr"] },
-  { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR", languages: ["en", "nl"] },
-  { code: "IT", name: "Italy", flag: "🇮🇹", currency: "EUR", languages: ["en", "it"] },
-  { code: "CH", name: "Switzerland", flag: "🇨🇭", currency: "CHF", languages: ["en", "de", "fr", "it"] },
   { code: "AT", name: "Austria", flag: "🇦🇹", currency: "EUR", languages: ["en", "de"] },
+  { code: "CA", name: "Canada", flag: "🇨🇦", currency: "CAD", languages: ["en"] },
+  { code: "CN", name: "China", flag: "🇨🇳", currency: "CNY", languages: ["en", "zh"] },
+  { code: "FR", name: "France", flag: "🇫🇷", currency: "EUR", languages: ["en", "fr"] },
+  { code: "DE", name: "Germany", flag: "🇩🇪", currency: "EUR", languages: ["en", "de"] },
+  { code: "IN", name: "India", flag: "🇮🇳", currency: "INR", languages: ["en"] },
+  { code: "IT", name: "Italy", flag: "🇮🇹", currency: "EUR", languages: ["en", "it"] },
+  { code: "MY", name: "Malaysia", flag: "🇲🇾", currency: "MYR", languages: ["en", "ms"] },
+  { code: "NL", name: "Netherlands", flag: "🇳🇱", currency: "EUR", languages: ["en", "nl"] },
+  { code: "NZ", name: "New Zealand", flag: "🇳🇿", currency: "NZD", languages: ["en"] },
   { code: "PL", name: "Poland", flag: "🇵🇱", currency: "PLN", languages: ["en", "pl"] },
+  { code: "RU", name: "Russia", flag: "🇷🇺", currency: "RUB", languages: ["en", "ru"] },
+  { code: "SG", name: "Singapore", flag: "🇸🇬", currency: "SGD", languages: ["en", "zh", "ms"] },
+  { code: "CH", name: "Switzerland", flag: "🇨🇭", currency: "CHF", languages: ["en", "de", "fr", "it"] },
+  { code: "TH", name: "Thailand", flag: "🇹🇭", currency: "THB", languages: ["en", "th"] },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", currency: "GBP", languages: ["en"] },
+  { code: "US", name: "United States", flag: "🇺🇸", currency: "USD", languages: ["en"] },
 ];
 
 export const LANGUAGES = [
   { code: "en", name: "English" },
-  { code: "ru", name: "Russian (Русский)" },
-  { code: "zh", name: "Chinese (中文)" },
   { code: "de", name: "German (Deutsch)" },
   { code: "fr", name: "French (Français)" },
-  { code: "nl", name: "Dutch (Nederlands)" },
   { code: "it", name: "Italian (Italiano)" },
+  { code: "ms", name: "Malay (Bahasa Melayu)" },
+  { code: "nl", name: "Dutch (Nederlands)" },
   { code: "pl", name: "Polish (Polski)" },
+  { code: "ru", name: "Russian (Русский)" },
+  { code: "th", name: "Thai (ไทย)" },
+  { code: "zh", name: "Chinese (中文)" },
 ];
 
 export const CATEGORIES: { id: Category; label: string; icon: string; color: string }[] = [

@@ -39,9 +39,10 @@ interface AddExpenseProps {
   customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
   hiddenCategories?: Category[];
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
+  country?: string;
 }
 
-const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [] }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [], country }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
