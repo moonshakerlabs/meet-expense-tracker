@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { UserSettings, CustomCategory, Category, CustomIncomeSource, CurrencyIncome, CurrencySavings } from "@/types/expense";
+import { UserSettings, CustomCategory, Category, CustomIncomeSource, CurrencyIncome, CurrencySavings, Purpose } from "@/types/expense";
 
 const STORAGE_KEY = "meet_settings";
 
@@ -33,6 +33,7 @@ const defaultSettings: UserSettings = {
   userName: undefined,
   currencyIncomes: [],
   currencySavings: [],
+  purposes: [],
 };
 
 export const useSettings = () => {
@@ -63,6 +64,7 @@ export const useSettings = () => {
           userName: parsed.userName || undefined,
           currencyIncomes: parsed.currencyIncomes || [],
           currencySavings: parsed.currencySavings || [],
+          purposes: parsed.purposes || [],
         });
       }
     } catch (error) {
@@ -307,6 +309,30 @@ export const useSettings = () => {
     }));
   }, []);
 
+  // Purpose management
+  const addPurpose = useCallback((purpose: Purpose) => {
+    setSettings((prev) => ({
+      ...prev,
+      purposes: [...(prev.purposes || []), purpose],
+    }));
+  }, []);
+
+  const updatePurpose = useCallback((id: string, updates: Partial<Purpose>) => {
+    setSettings((prev) => ({
+      ...prev,
+      purposes: (prev.purposes || []).map((p) =>
+        p.id === id ? { ...p, ...updates } : p
+      ),
+    }));
+  }, []);
+
+  const removePurpose = useCallback((id: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      purposes: (prev.purposes || []).filter((p) => p.id !== id),
+    }));
+  }, []);
+
   return {
     settings,
     isLoading,
@@ -335,5 +361,8 @@ export const useSettings = () => {
     addCurrencySavings,
     updateCurrencySavings,
     removeCurrencySavings,
+    addPurpose,
+    updatePurpose,
+    removePurpose,
   };
 };

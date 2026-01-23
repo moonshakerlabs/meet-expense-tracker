@@ -11,6 +11,8 @@ import CategoryDetailView from "@/components/CategoryDetailView";
 import IncomePanel from "@/components/IncomePanel";
 import RecurringExpensesPanel from "@/components/RecurringExpensesPanel";
 import CategoryManager from "@/components/CategoryManager";
+import PurposeManager from "@/components/PurposeManager";
+import PurposeDetailView from "@/components/PurposeDetailView";
 import InstallPrompt from "@/components/InstallPrompt";
 import PinLockScreen from "@/components/PinLockScreen";
 import PinSetup from "@/components/PinSetup";
@@ -32,12 +34,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type View = "dashboard" | "add-expense" | "settings" | "finance-menu" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "pin-setup" | "privacy" | "app-tour";
+type View = "dashboard" | "add-expense" | "settings" | "finance-menu" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "manage-purposes" | "purpose-detail" | "pin-setup" | "privacy" | "app-tour";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedPurposeId, setSelectedPurposeId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dashboardDate, setDashboardDate] = useState(new Date());
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -45,7 +48,7 @@ const Index = () => {
   const [showExitDialog, setShowExitDialog] = useState(false);
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
-  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings } = useSettings();
+  const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings, addPurpose, updatePurpose, removePurpose } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
 
@@ -60,8 +63,10 @@ const Index = () => {
       case "recurring":
         return () => setCurrentView("dashboard");
       case "category-detail":
+      case "purpose-detail":
         return () => setCurrentView("dashboard");
       case "manage-categories":
+      case "manage-purposes":
         return () => setCurrentView("finance-menu");
       case "privacy":
         return () => setCurrentView("settings");
@@ -97,6 +102,11 @@ const Index = () => {
     setSelectedCategory(category);
     setSelectedDate(date);
     setCurrentView("category-detail");
+  };
+
+  const handleViewPurpose = (purposeId: string) => {
+    setSelectedPurposeId(purposeId);
+    setCurrentView("purpose-detail");
   };
 
   const handleViewExpenses = (date: Date) => {
@@ -170,6 +180,8 @@ const Index = () => {
     );
   }
 
+  const selectedPurpose = settings.purposes?.find(p => p.id === selectedPurposeId);
+
   return (
     <>
       {currentView === "dashboard" && (
@@ -185,12 +197,14 @@ const Index = () => {
           onViewCategory={handleViewCategory}
           onViewIncome={() => setCurrentView("income")}
           onViewRecurring={() => setCurrentView("recurring")}
+          onViewPurpose={handleViewPurpose}
           monthlyIncome={getMonthlyIncome()}
           userName={settings.userName}
           customCategories={settings.customCategories}
           currencyIncomes={settings.currencyIncomes}
           currencySavings={settings.currencySavings}
           country={settings.country}
+          purposes={settings.purposes}
         />
       )}
 
@@ -204,6 +218,7 @@ const Index = () => {
           hiddenCategories={settings.hiddenCategories}
           customCategories={settings.customCategories}
           country={settings.country}
+          purposes={settings.purposes}
         />
       )}
 
@@ -218,6 +233,7 @@ const Index = () => {
           onChangePin={handleChangePin}
           onViewPrivacy={() => setCurrentView("privacy")}
           onViewAppTour={handleViewAppTour}
+          onResetApp={handleClearAllData}
         />
       )}
 
@@ -229,6 +245,7 @@ const Index = () => {
           expenses={expenses}
           onImportExpenses={importExpenses}
           onManageCategories={() => setCurrentView("manage-categories")}
+          onManagePurposes={() => setCurrentView("manage-purposes")}
           onViewIncome={() => setCurrentView("income")}
           onViewRecurring={() => setCurrentView("recurring")}
           onAddCurrencyIncome={addCurrencyIncome}
@@ -264,6 +281,17 @@ const Index = () => {
           defaultCurrencySymbol={settings.currencySymbol}
           onBack={() => setCurrentView("dashboard")}
           onChangeMonth={setSelectedDate}
+        />
+      )}
+
+      {currentView === "purpose-detail" && selectedPurpose && (
+        <PurposeDetailView
+          purpose={selectedPurpose}
+          expenses={expenses}
+          formatCurrency={formatCurrency}
+          defaultCurrencySymbol={settings.currencySymbol}
+          onBack={() => setCurrentView("dashboard")}
+          customCategories={settings.customCategories}
         />
       )}
 
@@ -311,6 +339,16 @@ const Index = () => {
           onUpdateSubcategory={updateSubcategory}
           onHideCategory={hideCategory}
           onShowCategory={showCategory}
+          onBack={() => setCurrentView("finance-menu")}
+        />
+      )}
+
+      {currentView === "manage-purposes" && (
+        <PurposeManager
+          purposes={settings.purposes || []}
+          onAddPurpose={addPurpose}
+          onUpdatePurpose={updatePurpose}
+          onRemovePurpose={removePurpose}
           onBack={() => setCurrentView("finance-menu")}
         />
       )}

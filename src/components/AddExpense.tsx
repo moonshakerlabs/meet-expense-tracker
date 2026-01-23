@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Category, CategoryId, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES } from "@/types/expense";
+import { Category, CategoryId, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES, Purpose } from "@/types/expense";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -34,15 +34,17 @@ interface AddExpenseProps {
     date: Date;
     currency: string;
     currencySymbol: string;
+    purposeId?: string;
   }) => void;
   onBack: () => void;
   customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
   hiddenCategories?: Category[];
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   country?: string;
+  purposes?: Purpose[];
 }
 
-const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [], country }: AddExpenseProps) => {
+const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [], country, purposes = [] }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
@@ -50,6 +52,7 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
   const [time, setTime] = useState(format(new Date(), "HH:mm"));
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<{ amount?: string; category?: string }>({});
+  const [purposeId, setPurposeId] = useState<string | null>(null);
   
   // Currency state - defaults to user's primary currency
   const [selectedCurrency, setSelectedCurrency] = useState(currency);
@@ -115,6 +118,7 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
       date: expenseDate,
       currency: selectedCurrency,
       currencySymbol: selectedCurrencySymbol,
+      purposeId: purposeId || undefined,
     });
 
     const builtInCat = CATEGORIES.find((c) => c.id === category);
@@ -254,6 +258,31 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
                   {availableSubcategories.map((sub) => (
                     <SelectItem key={sub.id} value={sub.id}>
                       {sub.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Purpose Selection (Optional) */}
+          {purposes.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Purpose (optional)
+              </label>
+              <Select
+                value={purposeId || "none"}
+                onValueChange={(value) => setPurposeId(value === "none" ? null : value)}
+              >
+                <SelectTrigger className="rounded-xl h-12">
+                  <SelectValue placeholder="Select purpose" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border border-border">
+                  <SelectItem value="none">No purpose</SelectItem>
+                  {purposes.map((purpose) => (
+                    <SelectItem key={purpose.id} value={purpose.id}>
+                      🎯 {purpose.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -38,12 +38,14 @@ interface DashboardProps {
   onViewCategory?: (category: Category, date: Date) => void;
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
+  onViewPurpose?: (purposeId: string) => void;
   monthlyIncome?: number;
   userName?: string;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   currencyIncomes?: CurrencyIncome[];
   currencySavings?: CurrencySavings[];
   country?: string;
+  purposes?: Array<{ id: string; label: string; createdAt: Date }>;
 }
 
 const MONTHS = [
@@ -63,16 +65,20 @@ const Dashboard = ({
   onViewCategory,
   onViewIncome,
   onViewRecurring,
+  onViewPurpose,
   monthlyIncome = 0,
   userName,
   customCategories = [],
   currencyIncomes = [],
   currencySavings = [],
   country,
+  purposes = [],
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
+  const [viewMode, setViewMode] = useState<"monthly" | "yearly" | "purpose">("monthly");
   const [expandedCurrencies, setExpandedCurrencies] = useState<Record<string, boolean>>({});
+  const [selectedPurpose, setSelectedPurpose] = useState<string | null>(null);
+  const [expandedMonths, setExpandedMonths] = useState(false);
   
   const month = selectedDate.getMonth();
   const year = selectedDate.getFullYear();
@@ -346,6 +352,16 @@ const Dashboard = ({
             <CalendarDays className="w-4 h-4 mr-1" />
             Yearly
           </Button>
+          {purposes.length > 0 && (
+            <Button
+              variant={viewMode === "purpose" ? "default" : "secondary"}
+              size="sm"
+              className="rounded-xl"
+              onClick={() => setViewMode("purpose")}
+            >
+              Purpose
+            </Button>
+          )}
         </div>
 
         {/* Main Stats Card */}
@@ -397,35 +413,93 @@ const Dashboard = ({
           </div>
         </Card>
 
-        {/* Yearly View: Monthly Breakdown */}
+        {/* Yearly View: Monthly Breakdown with Expand/Collapse */}
         {viewMode === "yearly" && monthlyBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl mb-4">
             <h3 className="font-semibold mb-4">Monthly Breakdown</h3>
-            <ScrollArea className="max-h-[300px]">
-              <div className="space-y-2">
-                {monthlyBreakdown.map((item) => (
+            <div className="space-y-2">
+              {(expandedMonths ? monthlyBreakdown : monthlyBreakdown.slice(0, 4)).map((item) => (
+                <div
+                  key={item.month}
+                  className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
+                  onClick={() => handleViewMonth(item.month)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <span className="text-sm font-semibold text-primary">{item.monthName.slice(0, 3)}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{item.monthName}</p>
+                      <p className="text-xs text-muted-foreground">{item.count} transactions</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{formatCurrency(item.total)}</p>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {monthlyBreakdown.length > 4 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-3 text-muted-foreground hover:text-foreground"
+                onClick={() => setExpandedMonths(!expandedMonths)}
+              >
+                {expandedMonths ? (
+                  <>
+                    <ChevronUp className="w-4 h-4 mr-1" />
+                    Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 mr-1" />
+                    +{monthlyBreakdown.length - 4} more months
+                  </>
+                )}
+              </Button>
+            )}
+          </Card>
+        )}
+
+        {/* Purpose View */}
+        {viewMode === "purpose" && (
+          <Card className="p-5 rounded-2xl mb-4">
+            <h3 className="font-semibold mb-4">Select Purpose</h3>
+            <div className="space-y-2">
+              {purposes.map((purpose) => {
+                const purposeExpenses = expenses.filter(e => e.purposeId === purpose.id);
+                const total = purposeExpenses.reduce((sum, e) => sum + e.amount, 0);
+                return (
                   <div
-                    key={item.month}
+                    key={purpose.id}
                     className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
-                    onClick={() => handleViewMonth(item.month)}
+                    onClick={() => onViewPurpose?.(purpose.id)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-semibold text-primary">{item.monthName.slice(0, 3)}</span>
+                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                        <span className="text-lg">🎯</span>
                       </div>
                       <div>
-                        <p className="font-medium">{item.monthName}</p>
-                        <p className="text-xs text-muted-foreground">{item.count} transactions</p>
+                        <p className="font-medium">{purpose.label}</p>
+                        <p className="text-xs text-muted-foreground">{purposeExpenses.length} expenses</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold">{formatCurrency(item.total)}</p>
+                      <p className="font-semibold">{formatCurrency(total)}</p>
                       <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
+                );
+              })}
+              {purposes.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p className="text-sm">No purposes defined</p>
+                  <p className="text-xs mt-1">Create purposes in Finance Management</p>
+                </div>
+              )}
+            </div>
           </Card>
         )}
 

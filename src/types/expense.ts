@@ -29,6 +29,7 @@ export interface Expense {
   createdAt: Date;
   syncStatus: "pending" | "synced" | "failed";
   recurringId?: string;
+  purposeId?: string; // Optional purpose tag
 }
 
 export interface Income {
@@ -97,6 +98,13 @@ export interface CurrencySavings {
   amount: number;
 }
 
+// Purpose definition for expense tagging
+export interface Purpose {
+  id: string;
+  label: string;
+  createdAt: Date;
+}
+
 export interface UserSettings {
   currency: string;
   currencySymbol: string;
@@ -115,6 +123,7 @@ export interface UserSettings {
   pinHash?: string;
   customIncomeSources: CustomIncomeSource[];
   userName?: string; // User's display name
+  purposes?: Purpose[]; // User-defined purposes for expense tracking
 }
 
 // Countries sorted alphabetically by name
@@ -206,9 +215,10 @@ export const SUBCATEGORIES: Record<Category, { id: string; label: string }[]> = 
     { id: "other", label: "Others" },
   ],
   transport: [
-    { id: "auto", label: "Auto" },
     { id: "taxi", label: "Taxi" },
     { id: "bus", label: "Bus" },
+    { id: "train", label: "Train" },
+    { id: "flight", label: "Flight" },
     { id: "fuel", label: "Fuel" },
     { id: "other", label: "Others" },
   ],
