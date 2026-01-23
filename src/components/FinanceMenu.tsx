@@ -26,6 +26,7 @@ interface FinanceMenuProps {
   expenses: Expense[];
   onImportExpenses: (expenses: Omit<Expense, 'id' | 'syncStatus'>[]) => number;
   onManageCategories?: () => void;
+  onManagePurposes?: () => void;
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
   onAddCurrencyIncome?: (income: CurrencyIncome) => void;
@@ -43,6 +44,7 @@ const FinanceMenu = ({
   expenses, 
   onImportExpenses, 
   onManageCategories, 
+  onManagePurposes,
   onViewIncome, 
   onViewRecurring,
   onAddCurrencyIncome,
@@ -377,6 +379,24 @@ const FinanceMenu = ({
             Management
           </h3>
           <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={onManagePurposes}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-orange-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Manage Purposes</p>
+                  <p className="text-sm text-muted-foreground">
+                    Add expense purposes
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
               onClick={onManageCategories}

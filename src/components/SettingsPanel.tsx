@@ -1,13 +1,24 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { UserSettings, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, FileText } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +33,7 @@ interface SettingsPanelProps {
   onChangePin?: () => void;
   onViewPrivacy?: () => void;
   onViewAppTour?: () => void;
+  onResetApp?: () => void;
 }
 
 const SettingsPanel = ({ 
@@ -33,9 +45,13 @@ const SettingsPanel = ({
   onDisablePin, 
   onChangePin, 
   onViewPrivacy, 
-  onViewAppTour 
+  onViewAppTour,
+  onResetApp,
 }: SettingsPanelProps) => {
   const [showThemeSheet, setShowThemeSheet] = useState(false);
+  const [showNameSheet, setShowNameSheet] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [newName, setNewName] = useState(settings.userName || "");
 
   const themes = [
     { id: "light" as const, icon: Sun, label: "Light", desc: "Clean & bright" },
@@ -50,6 +66,20 @@ const SettingsPanel = ({
       onDisablePin?.();
       toast.success("PIN protection disabled");
     }
+  };
+
+  const handleSaveName = () => {
+    if (newName.trim()) {
+      onUpdateSettings({ userName: newName.trim() });
+      toast.success("App name updated");
+      setShowNameSheet(false);
+    }
+  };
+
+  const handleResetApp = () => {
+    onResetApp?.();
+    setShowResetDialog(false);
+    toast.success("App has been reset");
   };
 
   return (
@@ -70,6 +100,35 @@ const SettingsPanel = ({
       </div>
 
       <div className="p-5 space-y-6">
+        {/* Profile */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Profile
+          </h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={() => {
+                setNewName(settings.userName || "");
+                setShowNameSheet(true);
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <User className="w-5 h-5 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Edit App Name</p>
+                  <p className="text-sm text-muted-foreground">
+                    {settings.userName || "Set your name"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </Card>
+        </div>
+
         {/* Appearance */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
@@ -171,24 +230,6 @@ const SettingsPanel = ({
 
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
-              onClick={onViewPrivacy}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-blue-500" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium">Terms & Conditions</p>
-                  <p className="text-sm text-muted-foreground">
-                    App usage terms
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </button>
-
-            <button
-              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
               onClick={onViewAppTour}
             >
               <div className="flex items-center gap-3">
@@ -221,6 +262,32 @@ const SettingsPanel = ({
                 </p>
               </div>
             </div>
+          </Card>
+        </div>
+
+        {/* Data Management */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+            Data Management
+          </h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-destructive/5 transition-colors"
+              onClick={() => setShowResetDialog(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <RotateCcw className="w-5 h-5 text-destructive" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium text-destructive">App Reset</p>
+                  <p className="text-sm text-muted-foreground">
+                    Clear all data and start fresh
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
           </Card>
         </div>
       </div>
@@ -262,6 +329,52 @@ const SettingsPanel = ({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Name Edit Sheet */}
+      <Sheet open={showNameSheet} onOpenChange={setShowNameSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Edit App Name</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 pb-8">
+            <Input
+              placeholder="Enter your name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="rounded-xl h-12"
+              autoFocus
+            />
+            <Button
+              className="w-full h-12 rounded-xl"
+              onClick={handleSaveName}
+              disabled={!newName.trim()}
+            >
+              Save Name
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Reset Confirmation Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent className="max-w-[90%] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset App?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all your expenses, settings, and data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleResetApp}
+            >
+              Reset Everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
