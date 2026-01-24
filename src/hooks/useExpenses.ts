@@ -16,14 +16,19 @@ export const useExpenses = () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        const expensesWithDates = parsed.map((e: Expense) => ({
-          ...e,
-          date: new Date(e.date),
-          createdAt: new Date(e.createdAt),
-          // Don't default currency here - we'll handle migration separately
-          // to avoid overwriting with USD
-        }));
-        setExpenses(expensesWithDates);
+        // Deduplicate expenses by id to prevent duplicates during app updates
+        const uniqueExpenses = new Map<string, Expense>();
+        parsed.forEach((e: Expense) => {
+          // Use the expense id as the key to prevent duplicates
+          if (!uniqueExpenses.has(e.id)) {
+            uniqueExpenses.set(e.id, {
+              ...e,
+              date: new Date(e.date),
+              createdAt: new Date(e.createdAt),
+            });
+          }
+        });
+        setExpenses(Array.from(uniqueExpenses.values()));
       }
     } catch (error) {
       console.error("Error loading expenses:", error);
