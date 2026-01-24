@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check } from "lucide-react";
-import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category } from "@/types/expense";
+import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -51,6 +51,7 @@ interface ExpenseListProps {
   selectedDate?: Date;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
+  purposes?: Array<{ id: string; label: string; createdAt: Date }>;
 }
 
 type FilterType = "today" | "week" | "month" | "all";
@@ -73,7 +74,8 @@ const ExpenseList = ({
   onDeleteExpense,
   selectedDate,
   customCategories = [],
-  customSubcategories = {}
+  customSubcategories = {},
+  purposes = []
 }: ExpenseListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
@@ -89,6 +91,7 @@ const ExpenseList = ({
   const [editNotes, setEditNotes] = useState("");
   const [editCurrency, setEditCurrency] = useState("");
   const [editCurrencySymbol, setEditCurrencySymbol] = useState("");
+  const [editPurposeId, setEditPurposeId] = useState<string>("");
   
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
 
@@ -108,6 +111,7 @@ const ExpenseList = ({
     setEditNotes(expense.notes || "");
     setEditCurrency(expense.currency || defaultCurrency);
     setEditCurrencySymbol(expense.currencySymbol || currencySymbol);
+    setEditPurposeId(expense.purposeId || "");
   };
 
   const handleEditCurrencyChange = (code: string) => {
@@ -133,6 +137,7 @@ const ExpenseList = ({
       date: expenseDate,
       currency: editCurrency,
       currencySymbol: editCurrencySymbol,
+      purposeId: editPurposeId || undefined,
     });
     
     const categoryMeta = getCategoryMeta(editCategory, customCategories);
@@ -418,6 +423,24 @@ const ExpenseList = ({
                 <div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="pl-10 h-10 rounded-xl" /></div>
               </div>
             </div>
+            {purposes.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">Purpose (Optional)</label>
+                <Select value={editPurposeId} onValueChange={setEditPurposeId}>
+                  <SelectTrigger className="rounded-xl h-10">
+                    <SelectValue placeholder="Select purpose" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border">
+                    <SelectItem value="">No Purpose</SelectItem>
+                    {purposes.map((purpose) => (
+                      <SelectItem key={purpose.id} value={purpose.id}>
+                        {purpose.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Notes</label>
               <Textarea placeholder="Add a note..." value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="rounded-xl resize-none" rows={2} />

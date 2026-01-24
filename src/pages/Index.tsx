@@ -269,6 +269,7 @@ const Index = () => {
           onDeleteExpense={deleteExpense}
           customCategories={settings.customCategories}
           customSubcategories={settings.customSubcategories}
+          purposes={settings.purposes}
         />
       )}
 
