@@ -512,24 +512,22 @@ const [searchQuery, setSearchQuery] = useState("");
                 <div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="pl-10 h-10 rounded-xl" /></div>
               </div>
             </div>
-            {purposes.length > 0 && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">Purpose (Optional)</label>
-                <Select value={editPurposeId} onValueChange={setEditPurposeId}>
-                  <SelectTrigger className="rounded-xl h-10">
-                    <SelectValue placeholder="Select purpose" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border">
-                    <SelectItem value="">No Purpose</SelectItem>
-                    {purposes.map((purpose) => (
-                      <SelectItem key={purpose.id} value={purpose.id}>
-                        {purpose.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">Purpose (Optional)</label>
+              <Select value={editPurposeId || "none"} onValueChange={(v) => setEditPurposeId(v === "none" ? "" : v)}>
+                <SelectTrigger className="rounded-xl h-10">
+                  <SelectValue placeholder="Select purpose" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border border-border z-50">
+                  <SelectItem value="none">No Purpose</SelectItem>
+                  {purposes.map((purpose) => (
+                    <SelectItem key={purpose.id} value={purpose.id}>
+                      {purpose.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Notes</label>
               <Textarea placeholder="Add a note..." value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="rounded-xl resize-none" rows={2} />
