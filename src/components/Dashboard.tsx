@@ -470,26 +470,46 @@ const Dashboard = ({
             <div className="space-y-2">
               {purposes.map((purpose) => {
                 const purposeExpenses = expenses.filter(e => e.purposeId === purpose.id);
-                const total = purposeExpenses.reduce((sum, e) => sum + e.amount, 0);
+                // Group by currency
+                const currencyTotals: Record<string, { amount: number; symbol: string }> = {};
+                purposeExpenses.forEach((e) => {
+                  const curr = e.currency || defaultCurrency;
+                  const symbol = e.currencySymbol || defaultCurrencySymbol;
+                  if (!currencyTotals[curr]) {
+                    currencyTotals[curr] = { amount: 0, symbol };
+                  }
+                  currencyTotals[curr].amount += e.amount;
+                });
+                const totalsArray = Object.entries(currencyTotals);
+                
                 return (
                   <div
                     key={purpose.id}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
+                    className="p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
                     onClick={() => onViewPurpose?.(purpose.id)}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                        <span className="text-lg">🎯</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                          <span className="text-lg">🎯</span>
+                        </div>
+                        <div>
+                          <p className="font-medium">{purpose.label}</p>
+                          <p className="text-xs text-muted-foreground">{purposeExpenses.length} expenses</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{purpose.label}</p>
-                        <p className="text-xs text-muted-foreground">{purposeExpenses.length} expenses</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold">{formatCurrency(total)}</p>
                       <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     </div>
+                    {totalsArray.length > 0 && (
+                      <div className="mt-2 pl-13 space-y-0.5">
+                        {totalsArray.map(([curr, data]) => (
+                          <p key={curr} className="text-sm font-semibold text-right">
+                            {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {totalsArray.length > 1 && <span className="text-xs font-normal text-muted-foreground ml-1">({curr})</span>}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
