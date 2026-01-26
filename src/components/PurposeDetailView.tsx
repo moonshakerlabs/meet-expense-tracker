@@ -48,32 +48,64 @@ const PurposeDetailView = ({
     return Object.entries(totals);
   }, [purposeExpenses]);
 
-  // Monthly breakdown
+  // Monthly breakdown with currency-wise totals
   const monthlyBreakdown = useMemo(() => {
-    const breakdown: Record<string, { month: number; year: number; total: number; count: number }> = {};
+    const breakdown: Record<string, { 
+      month: number; 
+      year: number; 
+      count: number;
+      currencies: Record<string, { amount: number; symbol: string }>;
+    }> = {};
     
     purposeExpenses.forEach((expense) => {
       const date = new Date(expense.date);
       const key = `${date.getFullYear()}-${date.getMonth()}`;
+      const curr = expense.currency || "USD";
+      const symbol = expense.currencySymbol || "$";
+      
       if (!breakdown[key]) {
-        breakdown[key] = { month: date.getMonth(), year: date.getFullYear(), total: 0, count: 0 };
+        breakdown[key] = { 
+          month: date.getMonth(), 
+          year: date.getFullYear(), 
+          count: 0,
+          currencies: {}
+        };
       }
-      breakdown[key].total += expense.amount;
+      
+      if (!breakdown[key].currencies[curr]) {
+        breakdown[key].currencies[curr] = { amount: 0, symbol };
+      }
+      
+      breakdown[key].currencies[curr].amount += expense.amount;
       breakdown[key].count += 1;
     });
 
-    return Object.values(breakdown).sort((a, b) => {
-      if (a.year !== b.year) return b.year - a.year;
-      return b.month - a.month;
-    });
+    return Object.values(breakdown)
+      .map((item) => ({
+        ...item,
+        currencyTotals: Object.entries(item.currencies),
+      }))
+      .sort((a, b) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return b.month - a.month;
+      });
   }, [purposeExpenses]);
 
-  // Category breakdown
+  // Category breakdown with currency-wise totals
   const categoryBreakdown = useMemo(() => {
-    const breakdown: Record<string, { category: string; label: string; icon: string; total: number; count: number }> = {};
+    const breakdown: Record<string, { 
+      category: string; 
+      label: string; 
+      icon: string; 
+      count: number;
+      currencies: Record<string, { amount: number; symbol: string }>;
+    }> = {};
     
     purposeExpenses.forEach((expense) => {
       const categoryId = expense.category;
+      const curr = expense.currency || "USD";
+      const symbol = expense.currencySymbol || "$";
+      
       if (!breakdown[categoryId]) {
         const builtIn = CATEGORIES.find((c) => c.id === categoryId);
         const custom = customCategories.find((c) => c.id === categoryId);
@@ -81,15 +113,27 @@ const PurposeDetailView = ({
           category: categoryId,
           label: builtIn?.label || custom?.label || categoryId,
           icon: builtIn?.icon || custom?.icon || "📦",
-          total: 0,
           count: 0,
+          currencies: {},
         };
       }
-      breakdown[categoryId].total += expense.amount;
+      
+      if (!breakdown[categoryId].currencies[curr]) {
+        breakdown[categoryId].currencies[curr] = { amount: 0, symbol };
+      }
+      
+      breakdown[categoryId].currencies[curr].amount += expense.amount;
       breakdown[categoryId].count += 1;
     });
 
-    return Object.values(breakdown).sort((a, b) => b.total - a.total);
+    return Object.values(breakdown)
+      .map((item) => ({
+        ...item,
+        currencyTotals: Object.entries(item.currencies),
+        // For sorting, sum all currencies (approximate)
+        totalForSort: Object.values(item.currencies).reduce((sum, c) => sum + c.amount, 0),
+      }))
+      .sort((a, b) => b.totalForSort - a.totalForSort);
   }, [purposeExpenses, customCategories]);
 
   return (
@@ -133,18 +177,18 @@ const PurposeDetailView = ({
           </Card>
         )}
 
-        {/* Monthly Breakdown */}
+        {/* Monthly Breakdown - Currency-wise */}
         {monthlyBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl mb-4">
             <h3 className="font-semibold mb-4">Monthly Breakdown</h3>
-            <ScrollArea className="max-h-[250px]">
+            <ScrollArea className="max-h-[300px]">
               <div className="space-y-2">
                 {monthlyBreakdown.map((item) => (
                   <div
                     key={`${item.year}-${item.month}`}
-                    className="flex items-center justify-between p-3 rounded-xl bg-secondary/30"
+                    className="p-3 rounded-xl bg-secondary/30"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-2">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <span className="text-sm font-semibold text-primary">{MONTHS[item.month].slice(0, 3)}</span>
                       </div>
@@ -153,7 +197,17 @@ const PurposeDetailView = ({
                         <p className="text-xs text-muted-foreground">{item.count} expenses</p>
                       </div>
                     </div>
-                    <p className="font-semibold">{formatCurrency(item.total)}</p>
+                    {/* Currency breakdown for this month */}
+                    <div className="ml-13 pl-13 space-y-1">
+                      {item.currencyTotals.map(([currency, data]) => (
+                        <div key={currency} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{currency}</span>
+                          <span className="font-semibold">
+                            {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -161,18 +215,18 @@ const PurposeDetailView = ({
           </Card>
         )}
 
-        {/* Category Breakdown */}
+        {/* Category Breakdown - Currency-wise */}
         {categoryBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl">
             <h3 className="font-semibold mb-4">Category Breakdown</h3>
-            <ScrollArea className="max-h-[250px]">
+            <ScrollArea className="max-h-[300px]">
               <div className="space-y-2">
                 {categoryBreakdown.map((item) => (
                   <div
                     key={item.category}
-                    className="flex items-center justify-between p-3 rounded-xl bg-secondary/30"
+                    className="p-3 rounded-xl bg-secondary/30"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-2">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                         style={{
@@ -186,7 +240,17 @@ const PurposeDetailView = ({
                         <p className="text-xs text-muted-foreground">{item.count} expenses</p>
                       </div>
                     </div>
-                    <p className="font-semibold">{formatCurrency(item.total)}</p>
+                    {/* Currency breakdown for this category */}
+                    <div className="ml-13 pl-13 space-y-1">
+                      {item.currencyTotals.map(([currency, data]) => (
+                        <div key={currency} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{currency}</span>
+                          <span className="font-semibold">
+                            {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

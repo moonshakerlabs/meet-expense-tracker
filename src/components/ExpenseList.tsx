@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check } from "lucide-react";
+import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, Calculator } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -77,10 +78,11 @@ const ExpenseList = ({
   customSubcategories = {},
   purposes = []
 }: ExpenseListProps) => {
-  const [searchQuery, setSearchQuery] = useState("");
+const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortType>("newest");
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
@@ -225,12 +227,49 @@ const ExpenseList = ({
     return Object.entries(totals);
   }, [filteredAndSortedExpenses, defaultCurrency, currencySymbol]);
 
+  // Calculate totals for selected categories (checkboxes)
+  const selectedCategoriesTotals = useMemo(() => {
+    if (selectedCategories.size === 0) return [];
+    const totals: Record<string, { amount: number; symbol: string; count: number }> = {};
+    filteredAndSortedExpenses
+      .filter((expense) => selectedCategories.has(expense.category))
+      .forEach((expense) => {
+        const curr = expense.currency || defaultCurrency;
+        const symbol = expense.currencySymbol || currencySymbol;
+        if (!totals[curr]) {
+          totals[curr] = { amount: 0, symbol, count: 0 };
+        }
+        totals[curr].amount += expense.amount;
+        totals[curr].count += 1;
+      });
+    return Object.entries(totals);
+  }, [filteredAndSortedExpenses, selectedCategories, defaultCurrency, currencySymbol]);
+
   // All categories for the dropdown (built-in + custom)
   const allCategories = useMemo(() => {
     const builtIn = CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: c.icon }));
     const custom = customCategories.map(c => ({ id: c.id, label: c.label, icon: c.icon }));
     return [...builtIn, ...custom];
   }, [customCategories]);
+
+  // Categories present in filtered expenses
+  const categoriesInExpenses = useMemo(() => {
+    const cats = new Set<string>();
+    filteredAndSortedExpenses.forEach((e) => cats.add(e.category));
+    return cats;
+  }, [filteredAndSortedExpenses]);
+
+  const toggleCategorySelection = (categoryId: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
 
   // Get subcategories for editing (built-in + custom)
   const editSubcategories = useMemo(() => {
@@ -308,6 +347,56 @@ const ExpenseList = ({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Category Multi-Select Checkboxes */}
+        {categoriesInExpenses.size > 0 && (
+          <Card className="p-4 rounded-2xl mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Calculator className="w-4 h-4 text-muted-foreground" />
+              <p className="text-sm font-medium">Sum by Categories</p>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {allCategories
+                .filter((cat) => categoriesInExpenses.has(cat.id))
+                .map((cat) => (
+                  <div
+                    key={cat.id}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-xl cursor-pointer transition-colors border",
+                      selectedCategories.has(cat.id)
+                        ? "bg-primary/10 border-primary"
+                        : "bg-secondary/50 border-transparent hover:bg-secondary"
+                    )}
+                    onClick={() => toggleCategorySelection(cat.id)}
+                  >
+                    <Checkbox
+                      checked={selectedCategories.has(cat.id)}
+                      onCheckedChange={() => toggleCategorySelection(cat.id)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm">{cat.icon}</span>
+                    <span className="text-sm">{cat.label}</span>
+                  </div>
+                ))}
+            </div>
+            {selectedCategoriesTotals.length > 0 && (
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-1">Selected Total</p>
+                <div className="space-y-1">
+                  {selectedCategoriesTotals.map(([currency, data]) => (
+                    <p key={currency} className="font-bold text-lg text-primary">
+                      {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {selectedCategoriesTotals.length > 1 && (
+                        <span className="text-sm font-normal text-muted-foreground ml-1">({currency})</span>
+                      )}
+                      <span className="text-sm font-normal text-muted-foreground ml-2">· {data.count} txn</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
 
         {filteredAndSortedExpenses.length > 0 ? (
           <div className="space-y-3">
