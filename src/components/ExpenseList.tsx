@@ -32,8 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, Calculator } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check } from "lucide-react";
 import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -82,8 +81,6 @@ const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortType>("newest");
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
-  const [selectedCategories, setSelectedCategories] = useState<Set<string> | null>(null); // null means all selected
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
@@ -235,74 +232,6 @@ const [searchQuery, setSearchQuery] = useState("");
     return [...builtIn, ...custom];
   }, [customCategories]);
 
-  // Categories present in filtered expenses
-  const categoriesInExpenses = useMemo(() => {
-    const cats = new Set<string>();
-    filteredAndSortedExpenses.forEach((e) => cats.add(e.category));
-    return cats;
-  }, [filteredAndSortedExpenses]);
-
-  // Calculate totals for selected categories (checkboxes) - null means all categories
-  const selectedCategoriesTotals = useMemo(() => {
-    // If null (all selected) or has selections, calculate totals
-    const categoriesToSum = selectedCategories === null 
-      ? categoriesInExpenses 
-      : selectedCategories;
-    
-    if (categoriesToSum.size === 0) {
-      return []; // No categories selected = show 0
-    }
-    
-    const totals: Record<string, { amount: number; symbol: string; count: number }> = {};
-    filteredAndSortedExpenses
-      .filter((expense) => categoriesToSum.has(expense.category))
-      .forEach((expense) => {
-        const curr = expense.currency || defaultCurrency;
-        const symbol = expense.currencySymbol || currencySymbol;
-        if (!totals[curr]) {
-          totals[curr] = { amount: 0, symbol, count: 0 };
-        }
-        totals[curr].amount += expense.amount;
-        totals[curr].count += 1;
-      });
-    return Object.entries(totals);
-  }, [filteredAndSortedExpenses, selectedCategories, categoriesInExpenses, defaultCurrency, currencySymbol]);
-
-  const toggleCategorySelection = (categoryId: string) => {
-    setSelectedCategories((prev) => {
-      // If null (all selected), initialize with all categories except the toggled one
-      if (prev === null) {
-        const next = new Set(categoriesInExpenses);
-        next.delete(categoryId);
-        return next;
-      }
-      const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
-      }
-      return next;
-    });
-  };
-
-  const selectAllCategories = () => {
-    setSelectedCategories(null); // null means all selected
-  };
-
-  const clearAllCategories = () => {
-    setSelectedCategories(new Set()); // empty set means none selected
-  };
-
-  const getSelectedCount = () => {
-    if (selectedCategories === null) return categoriesInExpenses.size;
-    return selectedCategories.size;
-  };
-
-  const isCategorySelected = (categoryId: string) => {
-    if (selectedCategories === null) return true; // All selected
-    return selectedCategories.has(categoryId);
-  };
 
   // Get subcategories for editing (built-in + custom)
   const editSubcategories = useMemo(() => {
@@ -380,82 +309,6 @@ const [searchQuery, setSearchQuery] = useState("");
             </SelectContent>
           </Select>
         </div>
-
-        {/* Category Multi-Select Dropdown with Totals */}
-        {categoriesInExpenses.size > 0 && (
-          <Card className="p-4 rounded-2xl mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Category Totals</p>
-              </div>
-              <Popover open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="rounded-xl h-8">
-                    {getSelectedCount()} of {categoriesInExpenses.size} selected
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-0 bg-background border border-border z-50" align="end">
-                  <div className="p-2 border-b border-border flex gap-2">
-                    <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={selectAllCategories}>
-                      Select All
-                    </Button>
-                    <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={clearAllCategories}>
-                      Clear All
-                    </Button>
-                  </div>
-                  <ScrollArea className="max-h-[250px]">
-                    <div className="p-2 space-y-1">
-                      {allCategories
-                        .filter((cat) => categoriesInExpenses.has(cat.id))
-                        .map((cat) => (
-                          <div
-                            key={cat.id}
-                            className={cn(
-                              "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
-                              isCategorySelected(cat.id)
-                                ? "bg-primary/10"
-                                : "hover:bg-secondary/50"
-                            )}
-                            onClick={() => toggleCategorySelection(cat.id)}
-                          >
-                            <Checkbox
-                              checked={isCategorySelected(cat.id)}
-                              onCheckedChange={() => toggleCategorySelection(cat.id)}
-                              className="h-4 w-4"
-                            />
-                            <span className="text-base">{cat.icon}</span>
-                            <span className="text-sm">{cat.label}</span>
-                          </div>
-                        ))}
-                    </div>
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            {/* Display totals by currency */}
-            <div className="space-y-1">
-              {selectedCategoriesTotals.length > 0 ? (
-                selectedCategoriesTotals.map(([currency, data]) => (
-                  <div key={currency} className="flex items-center justify-between">
-                    <p className="font-bold text-xl text-primary">
-                      {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      {selectedCategoriesTotals.length > 1 && (
-                        <span className="text-sm font-normal text-muted-foreground ml-1">({currency})</span>
-                      )}
-                    </p>
-                    <span className="text-sm text-muted-foreground">{data.count} txn</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  {getSelectedCount() === 0 ? "No categories selected" : "No expenses found"}
-                </p>
-              )}
-            </div>
-          </Card>
-        )}
 
         {filteredAndSortedExpenses.length > 0 ? (
           <div className="space-y-3">
