@@ -32,13 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check } from "lucide-react";
+import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, ChevronDown } from "lucide-react";
 import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getCategoryMeta } from "@/lib/categoryUtils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -80,7 +81,46 @@ const ExpenseList = ({
 const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortType>("newest");
-  const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
+  
+  
+  // Multi-select category state - default to all categories selected
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(() => {
+    const allCatIds = new Set<string>(CATEGORIES.map(c => c.id as string));
+    customCategories.forEach(c => allCatIds.add(c.id));
+    return allCatIds;
+  });
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [currencyFilter, setCurrencyFilter] = useState<string>("all");
+
+  // Toggle category selection
+  const toggleCategorySelection = (categoryId: string) => {
+    setSelectedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+    // Reset currency filter when categories change
+    setCurrencyFilter("all");
+  };
+
+  // Select all categories
+  const selectAllCategories = () => {
+    const allCatIds = new Set<string>(CATEGORIES.map(c => c.id as string));
+    customCategories.forEach(c => allCatIds.add(c.id));
+    setSelectedCategories(allCatIds);
+    setCurrencyFilter("all");
+  };
+
+  // Clear all categories
+  const clearAllCategories = () => {
+    setSelectedCategories(new Set());
+    setCurrencyFilter("all");
+  };
+  
   
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
@@ -170,8 +210,20 @@ const [searchQuery, setSearchQuery] = useState("");
     let filtered = expenses.filter((expense) => {
       const expenseDate = new Date(expense.date);
       
-      if (categoryFilter !== "all" && expense.category !== categoryFilter) {
+      // Multi-select category filter
+      if (selectedCategories.size === 0) {
+        return false; // Show nothing if no categories selected
+      }
+      if (!selectedCategories.has(expense.category)) {
         return false;
+      }
+      
+      // Currency filter
+      if (currencyFilter !== "all") {
+        const expCurrency = expense.currency || defaultCurrency;
+        if (expCurrency !== currencyFilter) {
+          return false;
+        }
       }
       
       switch (filter) {
@@ -208,7 +260,26 @@ const [searchQuery, setSearchQuery] = useState("");
         default: return 0;
       }
     });
-  }, [expenses, filter, sort, searchQuery, categoryFilter, contextMonth, contextYear, customCategories]);
+  }, [expenses, filter, sort, searchQuery, selectedCategories, currencyFilter, contextMonth, contextYear, customCategories, defaultCurrency]);
+
+  // Get currencies available for selected categories
+  const availableCurrencies = useMemo(() => {
+    const currencies = new Map<string, string>(); // code -> symbol
+    expenses.forEach((expense) => {
+      const expenseDate = new Date(expense.date);
+      // Only consider expenses in the current context month
+      if (expenseDate.getMonth() !== contextMonth || expenseDate.getFullYear() !== contextYear) {
+        return;
+      }
+      // Only consider expenses in selected categories
+      if (selectedCategories.size > 0 && selectedCategories.has(expense.category)) {
+        const curr = expense.currency || defaultCurrency;
+        const symbol = expense.currencySymbol || currencySymbol;
+        currencies.set(curr, symbol);
+      }
+    });
+    return Array.from(currencies.entries()).map(([code, symbol]) => ({ code, symbol }));
+  }, [expenses, selectedCategories, contextMonth, contextYear, defaultCurrency, currencySymbol]);
 
   // Calculate totals by currency for filtered expenses
   const totalsByCurrency = useMemo(() => {
@@ -256,30 +327,35 @@ const [searchQuery, setSearchQuery] = useState("");
           </div>
         </div>
 
-        {/* Summary Totals */}
-        {totalsByCurrency.length > 0 && (
-          <Card className="p-4 rounded-2xl mb-4 bg-gradient-to-br from-primary/10 to-primary/5">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  {filter === "all" ? "Month Total" : filter === "today" ? "Today" : filter === "week" ? "This Week" : "This Month"}
-                </p>
-                <div className="space-y-1">
-                  {totalsByCurrency.map(([currency, data]) => (
+        {/* Summary Totals - shows totals for selected categories */}
+        <Card className="p-4 rounded-2xl mb-4 bg-gradient-to-br from-primary/10 to-primary/5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">
+                {selectedCategories.size === 0 ? "No Categories Selected" : 
+                  filter === "all" ? "Month Total" : filter === "today" ? "Today" : filter === "week" ? "This Week" : "This Month"}
+              </p>
+              <div className="space-y-1">
+                {selectedCategories.size === 0 ? (
+                  <p className="font-bold text-xl text-muted-foreground">0</p>
+                ) : totalsByCurrency.length > 0 ? (
+                  totalsByCurrency.map(([currency, data]) => (
                     <p key={currency} className="font-bold text-xl">
                       {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       {totalsByCurrency.length > 1 && <span className="text-sm font-normal text-muted-foreground ml-1">({currency})</span>}
                     </p>
-                  ))}
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Transactions</p>
-                <p className="font-semibold text-lg">{filteredAndSortedExpenses.length}</p>
+                  ))
+                ) : (
+                  <p className="font-bold text-xl text-muted-foreground">0</p>
+                )}
               </div>
             </div>
-          </Card>
-        )}
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Transactions</p>
+              <p className="font-semibold text-lg">{filteredAndSortedExpenses.length}</p>
+            </div>
+          </div>
+        </Card>
 
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -292,17 +368,71 @@ const [searchQuery, setSearchQuery] = useState("");
           ))}
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
-          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryId | "all")}>
-            <SelectTrigger className="w-[140px] rounded-xl border-0 bg-secondary/50"><SelectValue placeholder="Category" /></SelectTrigger>
-            <SelectContent className="bg-background border border-border">
-              <SelectItem value="all">All Categories</SelectItem>
-              {allCategories.map((cat) => (<SelectItem key={cat.id} value={cat.id}>{cat.icon} {cat.label}</SelectItem>))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          {/* Multi-select Category Dropdown */}
+          <Popover open={categoryDropdownOpen} onOpenChange={setCategoryDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="secondary" className="rounded-xl border-0 bg-secondary/50 h-10 px-3 justify-between min-w-[140px]">
+                <span className="truncate">
+                  {selectedCategories.size === 0 
+                    ? "No Categories" 
+                    : selectedCategories.size === allCategories.length 
+                      ? "All Categories" 
+                      : `${selectedCategories.size} Selected`}
+                </span>
+                <ChevronDown className="w-4 h-4 ml-2 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2 bg-background border border-border z-50" align="start">
+              <div className="flex gap-2 mb-2 pb-2 border-b border-border">
+                <Button variant="ghost" size="sm" className="flex-1 text-xs h-7" onClick={selectAllCategories}>
+                  Select All
+                </Button>
+                <Button variant="ghost" size="sm" className="flex-1 text-xs h-7" onClick={clearAllCategories}>
+                  Clear
+                </Button>
+              </div>
+              <ScrollArea className="max-h-[200px]">
+                <div className="space-y-1">
+                  {allCategories.map((cat) => (
+                    <div 
+                      key={cat.id} 
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer"
+                      onClick={() => toggleCategorySelection(cat.id)}
+                    >
+                      <Checkbox 
+                        checked={selectedCategories.has(cat.id)} 
+                        onCheckedChange={() => toggleCategorySelection(cat.id)}
+                        className="pointer-events-none"
+                      />
+                      <span className="text-sm">{cat.icon} {cat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+
+          {/* Currency Filter Dropdown - only show if there are currencies available */}
+          {availableCurrencies.length > 0 && (
+            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+              <SelectTrigger className="w-[100px] rounded-xl border-0 bg-secondary/50">
+                <SelectValue placeholder="Currency" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border z-50">
+                <SelectItem value="all">All</SelectItem>
+                {availableCurrencies.map((curr) => (
+                  <SelectItem key={curr.code} value={curr.code}>
+                    {curr.symbol} {curr.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={sort} onValueChange={(v) => setSort(v as SortType)}>
-            <SelectTrigger className="w-[120px] rounded-xl border-0 bg-secondary/50"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-background border border-border">
+            <SelectTrigger className="w-[110px] rounded-xl border-0 bg-secondary/50"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-background border border-border z-50">
               <SelectItem value="newest">Newest</SelectItem>
               <SelectItem value="oldest">Oldest</SelectItem>
               <SelectItem value="highest">Highest</SelectItem>
