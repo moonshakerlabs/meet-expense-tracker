@@ -383,31 +383,49 @@ const [searchQuery, setSearchQuery] = useState("");
                 <ChevronDown className="w-4 h-4 ml-2 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-2 bg-background border border-border z-50" align="start">
-              <div className="flex gap-2 mb-2 pb-2 border-b border-border">
-                <Button variant="ghost" size="sm" className="flex-1 text-xs h-7" onClick={selectAllCategories}>
-                  Select All
-                </Button>
-                <Button variant="ghost" size="sm" className="flex-1 text-xs h-7" onClick={clearAllCategories}>
-                  Clear
+            <PopoverContent className="w-64 p-0 bg-popover border border-border shadow-lg z-50" align="start">
+              {/* Select/Deselect All Toggle Header */}
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+                <span className="text-sm font-medium">Categories</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-xs hover:bg-secondary"
+                  onClick={() => {
+                    if (selectedCategories.size === allCategories.length) {
+                      clearAllCategories();
+                    } else {
+                      selectAllCategories();
+                    }
+                  }}
+                >
+                  {selectedCategories.size === allCategories.length ? "Deselect All" : "Select All"}
                 </Button>
               </div>
-              <ScrollArea className="max-h-[200px]">
-                <div className="space-y-1">
-                  {allCategories.map((cat) => (
-                    <div 
-                      key={cat.id} 
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer"
-                      onClick={() => toggleCategorySelection(cat.id)}
-                    >
-                      <Checkbox 
-                        checked={selectedCategories.has(cat.id)} 
-                        onCheckedChange={() => toggleCategorySelection(cat.id)}
-                        className="pointer-events-none"
-                      />
-                      <span className="text-sm">{cat.icon} {cat.label}</span>
-                    </div>
-                  ))}
+              <ScrollArea className="max-h-[250px]">
+                <div className="p-2 space-y-0.5">
+                  {allCategories.map((cat) => {
+                    const isSelected = selectedCategories.has(cat.id);
+                    return (
+                      <div 
+                        key={cat.id} 
+                        className={cn(
+                          "flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer transition-colors",
+                          isSelected ? "bg-primary/10" : "hover:bg-secondary/50"
+                        )}
+                        onClick={() => toggleCategorySelection(cat.id)}
+                      >
+                        <Checkbox 
+                          checked={isSelected}
+                          onCheckedChange={() => toggleCategorySelection(cat.id)}
+                          className="h-5 w-5 rounded border-2 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                        />
+                        <span className="text-base">{cat.icon}</span>
+                        <span className="text-sm font-medium flex-1">{cat.label}</span>
+                        {isSelected && <Check className="w-4 h-4 text-primary" />}
+                      </div>
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </PopoverContent>

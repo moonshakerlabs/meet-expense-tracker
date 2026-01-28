@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ChevronRight, Receipt } from "lucide-react";
-import { Expense, CATEGORIES, CATEGORY_COLORS, Category, Purpose } from "@/types/expense";
+import { ArrowLeft, ChevronRight, Receipt, X } from "lucide-react";
+import { Expense, CATEGORIES, CATEGORY_COLORS, Category, Purpose, SUBCATEGORIES } from "@/types/expense";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getCategoryMeta } from "@/lib/categoryUtils";
 
 interface PurposeDetailViewProps {
   purpose: Purpose;
@@ -12,6 +13,7 @@ interface PurposeDetailViewProps {
   defaultCurrencySymbol: string;
   onBack: () => void;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
+  customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
 }
 
 const MONTHS = [
@@ -26,7 +28,10 @@ const PurposeDetailView = ({
   defaultCurrencySymbol,
   onBack,
   customCategories = [],
+  customSubcategories = {},
 }: PurposeDetailViewProps) => {
+  // State for viewing expenses by category
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   // Filter expenses by purpose
   const purposeExpenses = useMemo(
     () => expenses.filter((e) => e.purposeId === purpose.id),
@@ -136,6 +141,95 @@ const PurposeDetailView = ({
       .sort((a, b) => b.totalForSort - a.totalForSort);
   }, [purposeExpenses, customCategories]);
 
+  // Get expenses for the selected category
+  const categoryExpenses = useMemo(() => {
+    if (!selectedCategoryId) return [];
+    return purposeExpenses
+      .filter((e) => e.category === selectedCategoryId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [purposeExpenses, selectedCategoryId]);
+
+  // Get category meta for selected category
+  const selectedCategoryMeta = useMemo(() => {
+    if (!selectedCategoryId) return null;
+    return getCategoryMeta(selectedCategoryId, customCategories);
+  }, [selectedCategoryId, customCategories]);
+
+  // If viewing a category's expenses
+  if (selectedCategoryId && selectedCategoryMeta) {
+    return (
+      <div className="min-h-screen bg-background pb-8 safe-top">
+        <div className="px-5 pt-6 pb-4">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setSelectedCategoryId(null)}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{selectedCategoryMeta.icon}</span>
+                <h1 className="font-display font-bold text-2xl">{selectedCategoryMeta.label}</h1>
+              </div>
+              <p className="text-sm text-muted-foreground">🎯 {purpose.label} • {categoryExpenses.length} expenses</p>
+            </div>
+          </div>
+
+          {/* Expenses List */}
+          {categoryExpenses.length > 0 ? (
+            <ScrollArea className="max-h-[calc(100vh-150px)]">
+              <div className="space-y-3">
+                {categoryExpenses.map((expense) => {
+                  const expenseDate = new Date(expense.date);
+                  const expenseSymbol = expense.currencySymbol || defaultCurrencySymbol;
+                  // Get subcategory label
+                  const builtInSubLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
+                    ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label
+                    : null;
+                  const customSubLabel = expense.subcategory && customSubcategories[expense.category]
+                    ? customSubcategories[expense.category]?.find((s) => s.id === expense.subcategory)?.label
+                    : null;
+                  const subcategoryLabel = builtInSubLabel || customSubLabel;
+
+                  return (
+                    <Card key={expense.id} className="p-4 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                          style={{ backgroundColor: `${selectedCategoryMeta.color}20` }}
+                        >
+                          {selectedCategoryMeta.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {subcategoryLabel && <p className="font-medium truncate">{subcategoryLabel}</p>}
+                          {expense.notes && <p className="text-sm text-muted-foreground truncate">{expense.notes}</p>}
+                          <p className="text-xs text-muted-foreground">
+                            {expenseDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-semibold text-lg">-{expenseSymbol}{expense.amount.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">{expense.currency || "USD"}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          ) : (
+            <Card className="p-8 rounded-2xl text-center">
+              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                <Receipt className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold mb-2">No expenses</h3>
+              <p className="text-sm text-muted-foreground">No expenses in this category for this purpose</p>
+            </Card>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-8 safe-top">
       <div className="px-5 pt-6 pb-4">
@@ -215,7 +309,7 @@ const PurposeDetailView = ({
           </Card>
         )}
 
-        {/* Category Breakdown - Currency-wise */}
+        {/* Category Breakdown - Currency-wise - Clickable */}
         {categoryBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl">
             <h3 className="font-semibold mb-4">Category Breakdown</h3>
@@ -224,7 +318,8 @@ const PurposeDetailView = ({
                 {categoryBreakdown.map((item) => (
                   <div
                     key={item.category}
-                    className="p-3 rounded-xl bg-secondary/30"
+                    className="p-3 rounded-xl bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors group"
+                    onClick={() => setSelectedCategoryId(item.category)}
                   >
                     <div className="flex items-center gap-3 mb-2">
                       <div
@@ -235,10 +330,11 @@ const PurposeDetailView = ({
                       >
                         {item.icon}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium">{item.label}</p>
                         <p className="text-xs text-muted-foreground">{item.count} expenses</p>
                       </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
                     {/* Currency breakdown for this category */}
                     <div className="ml-13 pl-13 space-y-1">

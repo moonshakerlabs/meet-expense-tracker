@@ -293,6 +293,7 @@ const Index = () => {
           defaultCurrencySymbol={settings.currencySymbol}
           onBack={() => setCurrentView("dashboard")}
           customCategories={settings.customCategories}
+          customSubcategories={settings.customSubcategories}
         />
       )}
 
