@@ -417,8 +417,7 @@ const [searchQuery, setSearchQuery] = useState("");
                       >
                         <Checkbox 
                           checked={isSelected}
-                          onCheckedChange={() => toggleCategorySelection(cat.id)}
-                          className="h-5 w-5 rounded border-2 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          className="h-5 w-5 rounded border-2 data-[state=checked]:bg-primary data-[state=checked]:border-primary pointer-events-none"
                         />
                         <span className="text-base">{cat.icon}</span>
                         <span className="text-sm font-medium flex-1">{cat.label}</span>
