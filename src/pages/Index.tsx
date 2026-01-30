@@ -328,6 +328,7 @@ const Index = () => {
           customCategories={settings.customCategories}
           customSubcategories={settings.customSubcategories}
           purposes={settings.purposes}
+          canUseMultipleCurrencies={featureAccess.useMultipleCurrencies}
         />
       )}
 
