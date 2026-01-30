@@ -34,6 +34,10 @@ const defaultSettings: UserSettings = {
   currencyIncomes: [],
   currencySavings: [],
   purposes: [],
+  // Dashboard visibility toggles - default to true
+  showUpcomingPayments: true,
+  showSpendingByCategory: true,
+  showMonthlySpending: true,
 };
 
 export const useSettings = () => {
@@ -65,6 +69,10 @@ export const useSettings = () => {
           currencyIncomes: parsed.currencyIncomes || [],
           currencySavings: parsed.currencySavings || [],
           purposes: parsed.purposes || [],
+          // Dashboard visibility toggles - default to true if not set
+          showUpcomingPayments: parsed.showUpcomingPayments !== false,
+          showSpendingByCategory: parsed.showSpendingByCategory !== false,
+          showMonthlySpending: parsed.showMonthlySpending !== false,
         });
       }
     } catch (error) {

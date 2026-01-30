@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserSettings, CURRENCIES, COUNTRIES, Expense, CurrencyIncome, CurrencySavings } from "@/types/expense";
-import { ArrowLeft, Check, ChevronRight, Upload, Wallet, RefreshCw, FolderOpen, Globe, Plus, X, PiggyBank, Pencil, Trash2, Target, DollarSign, FileText } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Upload, Wallet, RefreshCw, FolderOpen, Globe, Plus, X, PiggyBank, Pencil, Trash2, Target, DollarSign, FileText, LayoutDashboard } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ExportReportsDialog from "@/components/ExportReportsDialog";
+import { Switch } from "@/components/ui/switch";
 
 interface FinanceMenuProps {
   settings: UserSettings;
@@ -270,6 +271,58 @@ const FinanceMenu = ({
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
+          </Card>
+        </div>
+
+        {/* Dashboard Display Toggles */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">Dashboard Display</h3>
+          <Card className="rounded-2xl divide-y divide-border">
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                  <LayoutDashboard className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div>
+                  <p className="font-medium">Show Monthly Spending</p>
+                  <p className="text-sm text-muted-foreground">Display spending card</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.showMonthlySpending !== false}
+                onCheckedChange={(checked) => onUpdateSettings({ showMonthlySpending: checked })}
+              />
+            </div>
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                  <FolderOpen className="w-5 h-5 text-violet-500" />
+                </div>
+                <div>
+                  <p className="font-medium">Show Spending by Category</p>
+                  <p className="text-sm text-muted-foreground">Display category breakdown</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.showSpendingByCategory !== false}
+                onCheckedChange={(checked) => onUpdateSettings({ showSpendingByCategory: checked })}
+              />
+            </div>
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-cyan-500" />
+                </div>
+                <div>
+                  <p className="font-medium">Show Upcoming Payments</p>
+                  <p className="text-sm text-muted-foreground">Display recurring expenses</p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.showUpcomingPayments !== false}
+                onCheckedChange={(checked) => onUpdateSettings({ showUpcomingPayments: checked })}
+              />
+            </div>
           </Card>
         </div>
 
