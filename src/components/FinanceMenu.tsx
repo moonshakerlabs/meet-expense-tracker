@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserSettings, CURRENCIES, COUNTRIES, Expense, CurrencyIncome, CurrencySavings } from "@/types/expense";
-import { ArrowLeft, Check, ChevronRight, Upload, Wallet, RefreshCw, FolderOpen, Globe, Plus, X, PiggyBank, Pencil, Trash2, Target, DollarSign, FileText, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Upload, Wallet, RefreshCw, FolderOpen, Globe, Plus, X, PiggyBank, Pencil, Trash2, Target, DollarSign, FileText, LayoutDashboard, Lock, Download } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ExportReportsDialog from "@/components/ExportReportsDialog";
 import { Switch } from "@/components/ui/switch";
+import { FeatureAccess } from "@/types/subscription";
+import CSVExportWarning from "@/components/CSVExportWarning";
 
 interface FinanceMenuProps {
   settings: UserSettings;
@@ -33,6 +35,8 @@ interface FinanceMenuProps {
   onAddCurrencySavings?: (savings: CurrencySavings) => void;
   onUpdateCurrencySavings?: (currency: string, amount: number) => void;
   onRemoveCurrencySavings?: (currency: string) => void;
+  featureAccess?: FeatureAccess;
+  onShowFreemiumGate?: (featureName: string) => void;
 }
 
 const FinanceMenu = ({ 
@@ -48,6 +52,8 @@ const FinanceMenu = ({
   onAddCurrencySavings,
   onUpdateCurrencySavings,
   onRemoveCurrencySavings,
+  featureAccess,
+  onShowFreemiumGate,
 }: FinanceMenuProps) => {
   const [showCurrencySheet, setShowCurrencySheet] = useState(false);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
@@ -56,7 +62,10 @@ const FinanceMenu = ({
   const [selectedSavingsCurrency, setSelectedSavingsCurrency] = useState("");
   const [savingsAmount, setSavingsAmount] = useState("");
   const [editingSavings, setEditingSavings] = useState<string | null>(null);
+  const [showCSVWarning, setShowCSVWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
 
   const processCSVContent = useCallback((content: string) => {
     const { expenses: parsedExpenses, result } = importFromCSV(content);
@@ -88,6 +97,46 @@ const FinanceMenu = ({
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const handleImportJSON = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      if (!content) {
+        toast.error("Failed to read file");
+        return;
+      }
+      try {
+        const data = JSON.parse(content);
+        if (data.expenses && Array.isArray(data.expenses)) {
+          // Parse dates and map to the expected format
+          const parsedExpenses = data.expenses.map((exp: any) => ({
+            amount: exp.amount,
+            category: exp.category || "misc",
+            subcategory: exp.subcategory,
+            notes: exp.notes,
+            date: new Date(exp.date),
+            createdAt: exp.createdAt ? new Date(exp.createdAt) : new Date(),
+            currency: exp.currency || settings.currency,
+            currencySymbol: exp.currencySymbol || settings.currencySymbol,
+            purposeId: exp.purposeId,
+          }));
+          const imported = onImportExpenses(parsedExpenses);
+          toast.success(`Imported ${imported} expenses from JSON`);
+        } else {
+          toast.error("Invalid JSON format. Expected { expenses: [...] }");
+        }
+      } catch (err) {
+        toast.error("Failed to parse JSON file");
+      }
+    };
+    reader.onerror = () => toast.error("Failed to read file");
+    reader.readAsText(file);
+    if (jsonFileInputRef.current) jsonFileInputRef.current.value = '';
+  };
+
 
   const handleCountryChange = (countryCode: string) => {
     const country = COUNTRIES.find(c => c.code === countryCode);
@@ -159,7 +208,16 @@ const FinanceMenu = ({
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">Region</h3>
           <Card className="rounded-2xl divide-y divide-border">
-            <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" onClick={() => setShowCountrySheet(true)}>
+            <button 
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" 
+              onClick={() => {
+                if (featureAccess?.changeCountryAfterSetup) {
+                  setShowCountrySheet(true);
+                } else {
+                  onShowFreemiumGate?.("Change country");
+                }
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center"><Globe className="w-5 h-5 text-blue-500" /></div>
                 <div className="text-left">
@@ -167,9 +225,22 @@ const FinanceMenu = ({
                   <p className="text-sm text-muted-foreground">{currentCountry ? `${currentCountry.flag} ${currentCountry.name}` : "Select country"}</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              {featureAccess?.changeCountryAfterSetup ? (
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Lock className="w-4 h-4 text-muted-foreground" />
+              )}
             </button>
-            <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" onClick={() => setShowCurrencySheet(true)}>
+            <button 
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" 
+              onClick={() => {
+                if (featureAccess?.changeDefaultCurrency) {
+                  setShowCurrencySheet(true);
+                } else {
+                  onShowFreemiumGate?.("Change currency");
+                }
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><span className="text-lg font-bold text-primary">{currentCurrency?.symbol}</span></div>
                 <div className="text-left">
@@ -177,7 +248,11 @@ const FinanceMenu = ({
                   <p className="text-sm text-muted-foreground">{currentCurrency?.name}</p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              {featureAccess?.changeDefaultCurrency ? (
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Lock className="w-4 h-4 text-muted-foreground" />
+              )}
             </button>
           </Card>
         </div>
@@ -212,7 +287,11 @@ const FinanceMenu = ({
                 <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center"><Target className="w-5 h-5 text-orange-500" /></div>
                 <div className="text-left"><p className="font-medium">Manage Purposes</p><p className="text-sm text-muted-foreground">Add expense purposes</p></div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              {featureAccess?.managePurposes ? (
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Lock className="w-4 h-4 text-muted-foreground" />
+              )}
             </button>
             <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" onClick={onManageCategories}>
               <div className="flex items-center gap-3">
@@ -326,18 +405,44 @@ const FinanceMenu = ({
           </Card>
         </div>
 
-        {/* Export Reports - Unified */}
+        {/* Import & Export Data */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">Data</h3>
           <Card className="rounded-2xl divide-y divide-border">
+            {/* Import JSON (always available) */}
+            <input type="file" ref={jsonFileInputRef} accept=".json,application/json" onChange={handleImportJSON} className="hidden" />
+            <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" onClick={() => jsonFileInputRef.current?.click()}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center"><Download className="w-5 h-5 text-green-500" /></div>
+                <div className="text-left"><p className="font-medium">Import from JSON</p><p className="text-sm text-muted-foreground">Restore backup data</p></div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+            
+            {/* Import CSV (Freemium only) */}
             <input type="file" ref={fileInputRef} accept=".csv,text/csv" onChange={handleImportCSV} className="hidden" />
-            <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" onClick={() => fileInputRef.current?.click()}>
+            <button 
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" 
+              onClick={() => {
+                if (featureAccess?.importCSV) {
+                  fileInputRef.current?.click();
+                } else {
+                  onShowFreemiumGate?.("Import CSV");
+                }
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center"><Upload className="w-5 h-5 text-orange-500" /></div>
                 <div className="text-left"><p className="font-medium">Import from CSV</p><p className="text-sm text-muted-foreground">Restore exported data</p></div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              {featureAccess?.importCSV ? (
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Lock className="w-4 h-4 text-muted-foreground" />
+              )}
             </button>
+            
+            {/* Export Reports */}
             <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors disabled:opacity-50" onClick={() => setShowExportDialog(true)} disabled={expenses.length === 0}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center"><FileText className="w-5 h-5 text-red-500" /></div>
@@ -348,6 +453,20 @@ const FinanceMenu = ({
           </Card>
         </div>
       </div>
+
+      {/* CSV Export Warning Dialog */}
+      <CSVExportWarning
+        open={showCSVWarning}
+        onOpenChange={setShowCSVWarning}
+        onExportCSV={() => {
+          setShowCSVWarning(false);
+          // Proceed with export - this will be handled in the ExportReportsDialog
+        }}
+        onUseJSON={() => {
+          setShowCSVWarning(false);
+          // Switch format to JSON
+        }}
+      />
 
       {/* Currency Sheet */}
       <Sheet open={showCurrencySheet} onOpenChange={setShowCurrencySheet}>
@@ -427,6 +546,8 @@ const FinanceMenu = ({
         defaultCurrencySymbol={settings.currencySymbol}
         monthlyIncome={settings.monthlyIncome || 0}
         customCategories={settings.customCategories}
+        featureAccess={featureAccess}
+        onShowFreemiumGate={onShowFreemiumGate}
       />
     </div>
   );

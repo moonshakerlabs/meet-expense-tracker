@@ -101,17 +101,50 @@ export const useExpenses = () => {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const importExpenses = useCallback(
-    (newExpenses: Omit<Expense, "id" | "syncStatus">[]) => {
-      const expensesWithIds: Expense[] = newExpenses.map((exp) => ({
-        ...exp,
-        id: generateId(),
-        syncStatus: "pending" as const,
-      }));
-      setExpenses((prev) => [...expensesWithIds, ...prev]);
-      return expensesWithIds.length;
+  // Helper to check if expense is a duplicate
+  const isDuplicateExpense = useCallback(
+    (newExp: Omit<Expense, "id" | "syncStatus">, existingExpenses: Expense[]): boolean => {
+      const newDate = new Date(newExp.date);
+      return existingExpenses.some((existing) => {
+        const existingDate = new Date(existing.date);
+        return (
+          existing.amount === newExp.amount &&
+          existing.currency === newExp.currency &&
+          existing.category === newExp.category &&
+          existingDate.toDateString() === newDate.toDateString() &&
+          (existing.notes || "") === (newExp.notes || "")
+        );
+      });
     },
     []
+  );
+
+  const importExpenses = useCallback(
+    (newExpenses: Omit<Expense, "id" | "syncStatus">[]) => {
+      let importedCount = 0;
+      
+      setExpenses((prev) => {
+        const nonDuplicates: Expense[] = [];
+        
+        for (const exp of newExpenses) {
+          // Check against both existing expenses and newly added ones
+          const allExpenses = [...prev, ...nonDuplicates];
+          if (!isDuplicateExpense(exp, allExpenses)) {
+            nonDuplicates.push({
+              ...exp,
+              id: generateId(),
+              syncStatus: "pending" as const,
+            });
+          }
+        }
+        
+        importedCount = nonDuplicates.length;
+        return [...nonDuplicates, ...prev];
+      });
+      
+      return importedCount;
+    },
+    [isDuplicateExpense]
   );
 
   // Calculate totals

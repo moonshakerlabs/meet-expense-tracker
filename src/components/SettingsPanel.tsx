@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserSettings, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw, Crown, Clock } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -22,6 +22,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { SubscriptionTier } from "@/types/subscription";
 
 interface SettingsPanelProps {
   settings: UserSettings;
@@ -34,6 +35,9 @@ interface SettingsPanelProps {
   onViewPrivacy?: () => void;
   onViewAppTour?: () => void;
   onResetApp?: () => void;
+  onViewUpgrade?: () => void;
+  subscriptionTier?: SubscriptionTier;
+  trialDaysRemaining?: number;
 }
 
 const SettingsPanel = ({ 
@@ -47,6 +51,9 @@ const SettingsPanel = ({
   onViewPrivacy, 
   onViewAppTour,
   onResetApp,
+  onViewUpgrade,
+  subscriptionTier = "free",
+  trialDaysRemaining = 0,
 }: SettingsPanelProps) => {
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showNameSheet, setShowNameSheet] = useState(false);
@@ -100,6 +107,38 @@ const SettingsPanel = ({
       </div>
 
       <div className="p-5 space-y-6">
+        {/* Upgrade to Freemium */}
+        <div>
+          <Card className="rounded-2xl overflow-hidden">
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors bg-gradient-to-r from-emerald-500/5 to-teal-500/5"
+              onClick={onViewUpgrade}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                  <Crown className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Upgrade to Freemium</p>
+                  <p className="text-sm text-muted-foreground">
+                    {subscriptionTier === "freemium_trial" 
+                      ? `Trial active • ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? "s" : ""} left`
+                      : subscriptionTier === "freemium_paid"
+                      ? "Freemium active"
+                      : "Unlock all features"
+                    }
+                  </p>
+                </div>
+              </div>
+              {subscriptionTier === "freemium_trial" ? (
+                <Clock className="w-5 h-5 text-emerald-500" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              )}
+            </button>
+          </Card>
+        </div>
+
         {/* Profile */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">

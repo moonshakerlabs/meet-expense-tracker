@@ -42,9 +42,23 @@ interface AddExpenseProps {
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   country?: string;
   purposes?: Purpose[];
+  canUseMultipleCurrencies?: boolean;
+  onShowFreemiumGate?: () => void;
 }
 
-const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, hiddenCategories = [], customCategories = [], country, purposes = [] }: AddExpenseProps) => {
+const AddExpense = ({ 
+  currencySymbol, 
+  currency, 
+  onSave, 
+  onBack, 
+  customSubcategories = {} as Record<string, { id: string; label: string; icon: string }[]>, 
+  hiddenCategories = [], 
+  customCategories = [], 
+  country, 
+  purposes = [],
+  canUseMultipleCurrencies = true,
+  onShowFreemiumGate,
+}: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
@@ -68,6 +82,11 @@ const AddExpense = ({ currencySymbol, currency, onSave, onBack, customSubcategor
   };
 
   const handleCurrencyChange = (code: string) => {
+    // If trying to change to non-primary currency without freemium, show gate
+    if (!canUseMultipleCurrencies && code !== currency) {
+      onShowFreemiumGate?.();
+      return;
+    }
     const curr = CURRENCIES.find((c) => c.code === code);
     if (curr) {
       setSelectedCurrency(curr.code);
