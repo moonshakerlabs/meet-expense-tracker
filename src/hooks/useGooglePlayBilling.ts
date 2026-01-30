@@ -1,0 +1,201 @@
+import { useState, useEffect, useCallback } from "react";
+import { Capacitor } from "@capacitor/core";
+
+// Product ID for the one-time Freemium purchase
+// This must match the product ID you created in Google Play Console
+export const FREEMIUM_PRODUCT_ID = "freemium_lifetime";
+
+interface PurchaseState {
+  isAvailable: boolean;
+  isLoading: boolean;
+  isPurchasing: boolean;
+  productPrice: string | null;
+  error: string | null;
+}
+
+export const useGooglePlayBilling = () => {
+  const [state, setState] = useState<PurchaseState>({
+    isAvailable: false,
+    isLoading: true,
+    isPurchasing: false,
+    productPrice: null,
+    error: null,
+  });
+
+  const isNativeAndroid = Capacitor.getPlatform() === "android";
+
+  // Dynamically import the plugin only on native Android
+  const getPlugin = useCallback(async () => {
+    if (!isNativeAndroid) return null;
+    try {
+      const { NativePurchases } = await import("@capgo/native-purchases");
+      return NativePurchases;
+    } catch (error) {
+      console.error("Failed to load NativePurchases plugin:", error);
+      return null;
+    }
+  }, [isNativeAndroid]);
+
+  // Initialize billing and check for existing purchases
+  useEffect(() => {
+    const initialize = async () => {
+      if (!isNativeAndroid) {
+        setState((prev) => ({ ...prev, isLoading: false, isAvailable: false }));
+        return;
+      }
+
+      try {
+        const NativePurchases = await getPlugin();
+        if (!NativePurchases) {
+          setState((prev) => ({ ...prev, isLoading: false, isAvailable: false }));
+          return;
+        }
+
+        // Check if billing is supported
+        const { isBillingSupported } = await NativePurchases.isBillingSupported();
+        if (!isBillingSupported) {
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            isAvailable: false,
+            error: "Billing not supported on this device",
+          }));
+          return;
+        }
+
+        // Get product information
+        const { products } = await NativePurchases.getProducts({
+          productIdentifiers: [FREEMIUM_PRODUCT_ID],
+          productType: "INAPP" as any, // One-time purchase
+        });
+
+        const freemiumProduct = products.find(
+          (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID || p.identifier === FREEMIUM_PRODUCT_ID
+        );
+
+        const priceValue = freemiumProduct?.priceString || freemiumProduct?.price;
+        const productPrice = typeof priceValue === 'number' ? `$${priceValue}` : priceValue || null;
+
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          isAvailable: true,
+          productPrice,
+        }));
+      } catch (error) {
+        console.error("Billing initialization error:", error);
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          isAvailable: false,
+          error: error instanceof Error ? error.message : "Failed to initialize billing",
+        }));
+      }
+    };
+
+    initialize();
+  }, [isNativeAndroid, getPlugin]);
+
+  // Check if user has already purchased Freemium
+  const checkExistingPurchase = useCallback(async (): Promise<boolean> => {
+    if (!isNativeAndroid) return false;
+
+    try {
+      const NativePurchases = await getPlugin();
+      if (!NativePurchases) return false;
+
+      const { purchases } = await NativePurchases.getPurchases({
+        productType: "INAPP" as any,
+      });
+
+      return purchases.some(
+        (p: any) =>
+          (p.productIdentifier === FREEMIUM_PRODUCT_ID || p.identifier === FREEMIUM_PRODUCT_ID) &&
+          (p.purchaseState === "PURCHASED" || p.isAcknowledged)
+      );
+    } catch (error) {
+      console.error("Error checking existing purchases:", error);
+      return false;
+    }
+  }, [isNativeAndroid, getPlugin]);
+
+  // Purchase Freemium upgrade
+  const purchaseFreemium = useCallback(async (): Promise<boolean> => {
+    if (!isNativeAndroid) {
+      setState((prev) => ({
+        ...prev,
+        error: "Google Play Billing is only available on Android devices",
+      }));
+      return false;
+    }
+
+    setState((prev) => ({ ...prev, isPurchasing: true, error: null }));
+
+    try {
+      const NativePurchases = await getPlugin();
+      if (!NativePurchases) {
+        throw new Error("Billing plugin not available");
+      }
+
+      const transaction = await NativePurchases.purchaseProduct({
+        productIdentifier: FREEMIUM_PRODUCT_ID,
+        productType: "INAPP" as any,
+      });
+
+      // Check if purchase was successful
+      if (
+        transaction.purchaseState === "PURCHASED" ||
+        transaction.isAcknowledged
+      ) {
+        setState((prev) => ({ ...prev, isPurchasing: false }));
+        return true;
+      } else {
+        setState((prev) => ({
+          ...prev,
+          isPurchasing: false,
+          error: "Purchase was not completed",
+        }));
+        return false;
+      }
+    } catch (error: any) {
+      console.error("Purchase error:", error);
+
+      // Handle user cancellation gracefully
+      if (error.code === "USER_CANCELED" || error.message?.includes("cancel")) {
+        setState((prev) => ({ ...prev, isPurchasing: false, error: null }));
+        return false;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isPurchasing: false,
+        error: error.message || "Purchase failed",
+      }));
+      return false;
+    }
+  }, [isNativeAndroid, getPlugin]);
+
+  // Restore purchases (for reinstalls)
+  const restorePurchases = useCallback(async (): Promise<boolean> => {
+    if (!isNativeAndroid) return false;
+
+    try {
+      const NativePurchases = await getPlugin();
+      if (!NativePurchases) return false;
+
+      await NativePurchases.restorePurchases();
+      return await checkExistingPurchase();
+    } catch (error) {
+      console.error("Restore purchases error:", error);
+      return false;
+    }
+  }, [isNativeAndroid, getPlugin, checkExistingPurchase]);
+
+  return {
+    ...state,
+    isNativeAndroid,
+    purchaseFreemium,
+    checkExistingPurchase,
+    restorePurchases,
+  };
+};

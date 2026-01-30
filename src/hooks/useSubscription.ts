@@ -68,6 +68,16 @@ export const useSubscription = () => {
     return true;
   }, [state.trialUsed]);
 
+  // Upgrade to paid Freemium (after successful Google Play purchase)
+  const upgradeToPaid = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      tier: "freemium_paid",
+      purchaseDate: new Date().toISOString(),
+    }));
+    return true;
+  }, []);
+
   // Check if trial is active
   const isTrialActive = useCallback(() => {
     if (state.tier !== "freemium_trial") return false;
@@ -76,6 +86,11 @@ export const useSubscription = () => {
     const endDate = new Date(state.trialEndDate);
     return new Date() <= endDate;
   }, [state.tier, state.trialEndDate]);
+
+  // Check if user has paid for Freemium
+  const isPaid = useCallback(() => {
+    return state.tier === "freemium_paid";
+  }, [state.tier]);
 
   // Get days remaining in trial
   const getTrialDaysRemaining = useCallback(() => {
@@ -133,7 +148,9 @@ export const useSubscription = () => {
     hasFeature,
     canUseMultipleCurrencies,
     startTrial,
+    upgradeToPaid,
     isTrialActive,
+    isPaid,
     getTrialDaysRemaining,
     trialUsed: state.trialUsed,
     dataAcknowledged: state.dataAcknowledged,
