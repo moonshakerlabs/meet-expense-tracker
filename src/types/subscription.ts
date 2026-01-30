@@ -7,6 +7,7 @@ export interface SubscriptionState {
   trialEndDate?: string; // ISO date string
   trialUsed: boolean;
   dataAcknowledged: boolean; // User acknowledged data is stored locally only
+  purchaseDate?: string; // ISO date string for paid users
 }
 
 // Trial duration in days

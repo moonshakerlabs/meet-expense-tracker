@@ -57,7 +57,7 @@ const Index = () => {
   const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings, addPurpose, updatePurpose, removePurpose } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal, markAsGenerated } = useRecurringExpenses();
-  const { tier: subscriptionTier, featureAccess, hasFeature, startTrial, isTrialActive, getTrialDaysRemaining, trialUsed, acknowledgeDataProtection, resetSubscription } = useSubscription();
+  const { tier: subscriptionTier, featureAccess, hasFeature, startTrial, upgradeToPaid, isTrialActive, isPaid, getTrialDaysRemaining, trialUsed, acknowledgeDataProtection, resetSubscription } = useSubscription();
 
   // Handle back button navigation
   const getBackHandler = () => {
@@ -433,9 +433,11 @@ const Index = () => {
         <UpgradeScreen
           onBack={() => setCurrentView("settings")}
           onStartTrial={handleStartTrial}
+          onUpgradeToPaid={upgradeToPaid}
           trialUsed={trialUsed}
           isTrialActive={isTrialActive()}
           trialDaysRemaining={getTrialDaysRemaining()}
+          isPaid={isPaid()}
         />
       )}
 

@@ -1,24 +1,70 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Check, Crown, Award, Clock } from "lucide-react";
+import { ArrowLeft, Check, Crown, Award, Clock, RefreshCw, ShoppingCart } from "lucide-react";
 import { FREE_FEATURES, FREEMIUM_FEATURES } from "@/types/subscription";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useGooglePlayBilling } from "@/hooks/useGooglePlayBilling";
+import { toast } from "sonner";
 
 interface UpgradeScreenProps {
   onBack: () => void;
   onStartTrial: () => void;
+  onUpgradeToPaid: () => void;
   trialUsed: boolean;
   isTrialActive: boolean;
   trialDaysRemaining: number;
+  isPaid: boolean;
 }
 
 const UpgradeScreen = ({
   onBack,
   onStartTrial,
+  onUpgradeToPaid,
   trialUsed,
   isTrialActive,
   trialDaysRemaining,
+  isPaid,
 }: UpgradeScreenProps) => {
+  const {
+    isAvailable: billingAvailable,
+    isLoading: billingLoading,
+    isPurchasing,
+    productPrice,
+    error: billingError,
+    isNativeAndroid,
+    purchaseFreemium,
+    restorePurchases,
+  } = useGooglePlayBilling();
+
+  const handlePurchase = async () => {
+    const success = await purchaseFreemium();
+    if (success) {
+      onUpgradeToPaid();
+      toast.success("Welcome to Freemium!", {
+        description: "All premium features are now unlocked.",
+      });
+    } else if (billingError) {
+      toast.error("Purchase failed", {
+        description: billingError,
+      });
+    }
+  };
+
+  const handleRestore = async () => {
+    toast.loading("Restoring purchases...");
+    const restored = await restorePurchases();
+    if (restored) {
+      onUpgradeToPaid();
+      toast.success("Purchase restored!", {
+        description: "Your Freemium access has been restored.",
+      });
+    } else {
+      toast.error("No purchases found", {
+        description: "We couldn't find any previous purchases to restore.",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
       {/* Header */}
@@ -44,15 +90,37 @@ const UpgradeScreen = ({
               <Crown className="w-10 h-10 text-emerald-500" />
             </div>
             <h2 className="font-display font-bold text-2xl mb-2">
-              Unlock Full Potential
+              {isPaid ? "You're a Freemium Member!" : "Unlock Full Potential"}
             </h2>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              One-time upgrade. Lifetime access. No login. No cloud.
+              {isPaid 
+                ? "Thank you for supporting the app. All features are unlocked."
+                : "One-time upgrade. Lifetime access. No login. No cloud."
+              }
             </p>
           </div>
 
+          {/* Paid Status */}
+          {isPaid && (
+            <Card className="p-4 rounded-2xl bg-emerald-500/10 border-emerald-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                  <Award className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    Freemium Unlocked
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Lifetime access granted
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Trial Status */}
-          {isTrialActive && (
+          {!isPaid && isTrialActive && (
             <Card className="p-4 rounded-2xl bg-emerald-500/10 border-emerald-500/20">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
@@ -119,41 +187,94 @@ const UpgradeScreen = ({
             </p>
           </Card>
 
-          {/* Future Pro Note */}
-          <p className="text-xs text-center text-muted-foreground px-4">
-            More advanced features like AI-powered insights may be introduced later under Pro.
-          </p>
+          {/* Restore Purchases Link (for Android) */}
+          {isNativeAndroid && !isPaid && (
+            <button
+              onClick={handleRestore}
+              className="w-full text-center text-sm text-muted-foreground underline"
+            >
+              Restore previous purchase
+            </button>
+          )}
         </div>
       </ScrollArea>
 
       {/* Bottom Action */}
       <div className="fixed bottom-0 left-0 right-0 p-5 bg-background/95 backdrop-blur-lg border-t border-border safe-bottom">
-        {!trialUsed ? (
-          <Button
-            size="lg"
-            className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
-            onClick={onStartTrial}
-          >
-            <Award className="w-5 h-5 mr-2" />
-            Start 7-day Free Trial
-          </Button>
-        ) : isTrialActive ? (
+        {isPaid ? (
           <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              You're enjoying Freemium features
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Payment integration coming soon
+            <p className="text-sm text-muted-foreground">
+              All Freemium features are unlocked
             </p>
           </div>
+        ) : !trialUsed ? (
+          <div className="space-y-3">
+            <Button
+              size="lg"
+              className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              onClick={onStartTrial}
+            >
+              <Award className="w-5 h-5 mr-2" />
+              Start 7-day Free Trial
+            </Button>
+            {isNativeAndroid && billingAvailable && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full rounded-2xl h-12"
+                onClick={handlePurchase}
+                disabled={isPurchasing || billingLoading}
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                {isPurchasing ? "Processing..." : `Buy Now ${productPrice || ""}`}
+              </Button>
+            )}
+          </div>
+        ) : isTrialActive ? (
+          <div className="space-y-3">
+            <p className="text-sm text-center text-muted-foreground mb-2">
+              You're enjoying Freemium features
+            </p>
+            {isNativeAndroid && billingAvailable && (
+              <Button
+                size="lg"
+                className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                onClick={handlePurchase}
+                disabled={isPurchasing || billingLoading}
+              >
+                <ShoppingCart className="w-5 h-5 mr-2" />
+                {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
+              </Button>
+            )}
+            {!isNativeAndroid && (
+              <p className="text-xs text-center text-muted-foreground">
+                Purchase available in the Android app
+              </p>
+            )}
+          </div>
         ) : (
-          <div className="text-center space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Your trial has ended. Upgrade anytime to unlock Freemium features.
+          <div className="space-y-3">
+            <p className="text-sm text-center text-muted-foreground mb-2">
+              Your trial has ended. Upgrade to unlock Freemium features.
             </p>
-            <p className="text-xs text-muted-foreground">
-              Payment integration coming soon
-            </p>
+            {isNativeAndroid && billingAvailable ? (
+              <Button
+                size="lg"
+                className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+                onClick={handlePurchase}
+                disabled={isPurchasing || billingLoading}
+              >
+                <ShoppingCart className="w-5 h-5 mr-2" />
+                {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
+              </Button>
+            ) : (
+              <p className="text-xs text-center text-muted-foreground">
+                {isNativeAndroid 
+                  ? "Unable to connect to Google Play. Please try again later."
+                  : "Purchase available in the Android app"
+                }
+              </p>
+            )}
           </div>
         )}
       </div>
