@@ -119,8 +119,11 @@ export const useExpenses = () => {
     []
   );
 
+  type ImportExpenseInput = Partial<Pick<Expense, "id">> &
+    Omit<Expense, "id" | "syncStatus">;
+
   const importExpenses = useCallback(
-    (newExpenses: Omit<Expense, "id" | "syncStatus">[]) => {
+    (newExpenses: ImportExpenseInput[]) => {
       let importedCount = 0;
       
       setExpenses((prev) => {
@@ -129,10 +132,17 @@ export const useExpenses = () => {
         for (const exp of newExpenses) {
           // Check against both existing expenses and newly added ones
           const allExpenses = [...prev, ...nonDuplicates];
+
+          // If the imported expense includes a stable id and we already have it, skip.
+          // This prevents duplicates when re-importing backups that include ids.
+          if (exp.id && allExpenses.some((e) => e.id === exp.id)) {
+            continue;
+          }
+
           if (!isDuplicateExpense(exp, allExpenses)) {
             nonDuplicates.push({
               ...exp,
-              id: generateId(),
+              id: exp.id || generateId(),
               syncStatus: "pending" as const,
             });
           }

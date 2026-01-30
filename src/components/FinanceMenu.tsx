@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { UserSettings, CURRENCIES, COUNTRIES, Expense, CurrencyIncome, CurrencySavings } from "@/types/expense";
+import { UserSettings, CURRENCIES, COUNTRIES, CATEGORIES, Expense, CurrencyIncome, CurrencySavings } from "@/types/expense";
 import { ArrowLeft, Check, ChevronRight, Upload, Wallet, RefreshCw, FolderOpen, Globe, Plus, X, PiggyBank, Pencil, Trash2, Target, DollarSign, FileText, LayoutDashboard, Lock, Download } from "lucide-react";
 import {
   Sheet,
@@ -24,7 +24,7 @@ interface FinanceMenuProps {
   onUpdateSettings: (updates: Partial<UserSettings>) => void;
   onBack: () => void;
   expenses: Expense[];
-  onImportExpenses: (expenses: Omit<Expense, 'id' | 'syncStatus'>[]) => number;
+  onImportExpenses: (expenses: (Partial<Pick<Expense, 'id'>> & Omit<Expense, 'id' | 'syncStatus'>)[]) => number;
   onManageCategories?: () => void;
   onManagePurposes?: () => void;
   onViewIncome?: () => void;
@@ -111,10 +111,35 @@ const FinanceMenu = ({
       try {
         const data = JSON.parse(content);
         if (data.expenses && Array.isArray(data.expenses)) {
+          const normalizeCategoryId = (raw: unknown): string => {
+            const value = typeof raw === "string" ? raw.trim() : "";
+            if (!value) return "misc";
+
+            // If it already looks like an id (built-in or custom), keep it
+            const builtInMatch = CATEGORIES.find((c) => c.id === value);
+            if (builtInMatch) return builtInMatch.id;
+            const customMatch = settings.customCategories?.find((c) => c.id === value);
+            if (customMatch) return customMatch.id;
+
+            // Otherwise treat it as a label from older exports
+            const builtInByLabel = CATEGORIES.find(
+              (c) => c.label.toLowerCase() === value.toLowerCase()
+            );
+            if (builtInByLabel) return builtInByLabel.id;
+            const customByLabel = settings.customCategories?.find(
+              (c) => c.label.toLowerCase() === value.toLowerCase()
+            );
+            if (customByLabel) return customByLabel.id;
+
+            return "misc";
+          };
+
           // Parse dates and map to the expected format
           const parsedExpenses = data.expenses.map((exp: any) => ({
+            // Keep id if present (helps prevent duplicates on re-import)
+            id: exp.id,
             amount: exp.amount,
-            category: exp.category || "misc",
+            category: normalizeCategoryId(exp.category || "misc"),
             subcategory: exp.subcategory,
             notes: exp.notes,
             date: new Date(exp.date),
