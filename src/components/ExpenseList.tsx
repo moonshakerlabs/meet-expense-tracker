@@ -53,6 +53,7 @@ interface ExpenseListProps {
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
   customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
   purposes?: Array<{ id: string; label: string; createdAt: Date }>;
+  canUseMultipleCurrencies?: boolean;
 }
 
 type FilterType = "today" | "week" | "month" | "all";
@@ -76,7 +77,8 @@ const ExpenseList = ({
   selectedDate,
   customCategories = [],
   customSubcategories = {},
-  purposes = []
+  purposes = [],
+  canUseMultipleCurrencies = true,
 }: ExpenseListProps) => {
 const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
@@ -512,23 +514,29 @@ const [searchQuery, setSearchQuery] = useState("");
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Amount</label>
               <div className="flex gap-2">
-                <Select value={editCurrency} onValueChange={handleEditCurrencyChange}>
-                  <SelectTrigger className="w-[90px] rounded-xl h-12">
-                    <SelectValue>
-                      <span className="font-semibold">{editCurrency}</span>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border max-h-[200px]">
-                    {CURRENCIES.map((curr) => (
-                      <SelectItem key={curr.code} value={curr.code}>
-                        <span className="flex items-center gap-2">
-                          <span className="font-semibold">{curr.symbol}</span>
-                          <span className="text-muted-foreground">{curr.code}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {canUseMultipleCurrencies ? (
+                  <Select value={editCurrency} onValueChange={handleEditCurrencyChange}>
+                    <SelectTrigger className="w-[90px] rounded-xl h-12">
+                      <SelectValue>
+                        <span className="font-semibold">{editCurrency}</span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border max-h-[200px]">
+                      {CURRENCIES.map((curr) => (
+                        <SelectItem key={curr.code} value={curr.code}>
+                          <span className="flex items-center gap-2">
+                            <span className="font-semibold">{curr.symbol}</span>
+                            <span className="text-muted-foreground">{curr.code}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-[90px] h-12 rounded-xl border flex items-center justify-center bg-muted/30">
+                    <span className="font-semibold text-muted-foreground">{editCurrency}</span>
+                  </div>
+                )}
                 <div className="relative flex-1">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-semibold text-muted-foreground">{editCurrencySymbol}</span>
                   <Input type="text" inputMode="decimal" placeholder="0.00" value={editAmount} onChange={(e) => handleAmountChange(e.target.value)} className="pl-10 h-12 text-xl font-bold rounded-xl" />
