@@ -186,24 +186,30 @@ const AddExpense = ({
               Amount
             </label>
             <div className="flex gap-2">
-              {/* Currency Dropdown */}
-              <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
-                <SelectTrigger className="w-[90px] rounded-xl h-16 border-2">
-                  <SelectValue>
-                    <span className="font-semibold">{selectedCurrency}</span>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="bg-background border border-border max-h-[300px]">
-                  {CURRENCIES.map((curr) => (
-                    <SelectItem key={curr.code} value={curr.code}>
-                      <span className="flex items-center gap-2">
-                        <span className="font-semibold">{curr.symbol}</span>
-                        <span className="text-muted-foreground">{curr.code}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Currency Dropdown - Only show for Freemium users */}
+              {canUseMultipleCurrencies ? (
+                <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
+                  <SelectTrigger className="w-[90px] rounded-xl h-16 border-2">
+                    <SelectValue>
+                      <span className="font-semibold">{selectedCurrency}</span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border max-h-[300px]">
+                    {CURRENCIES.map((curr) => (
+                      <SelectItem key={curr.code} value={curr.code}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold">{curr.symbol}</span>
+                          <span className="text-muted-foreground">{curr.code}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="w-[90px] h-16 rounded-xl border-2 flex items-center justify-center bg-muted/30">
+                  <span className="font-semibold text-muted-foreground">{currency}</span>
+                </div>
+              )}
               
               {/* Amount Input */}
               <div className="relative flex-1">
