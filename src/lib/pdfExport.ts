@@ -3,37 +3,16 @@ import { Expense, CurrencyIncome, CurrencySavings, CURRENCIES, CATEGORIES } from
 import { format } from "date-fns";
 import { exportFile } from "./fileExport";
 
-// Exchange rates to USD (approximate - in a real app, fetch from API)
-const EXCHANGE_RATES_TO_USD: Record<string, number> = {
-  USD: 1,
-  EUR: 1.08,
-  GBP: 1.27,
-  INR: 0.012,
-  JPY: 0.0067,
-  CAD: 0.74,
-  AUD: 0.65,
-  SGD: 0.74,
-  MYR: 0.21,
-  CHF: 1.12,
-  THB: 0.028,
-  AED: 0.27,
-  PHP: 0.018,
-  NZD: 0.61,
-  RUB: 0.011,
-  CNY: 0.14,
-  PLN: 0.25,
-};
-
-// Beautiful color palette
+// Premium color palette - muted, professional
 const COLORS = {
-  primary: [79, 70, 229], // Indigo
-  secondary: [99, 102, 241],
-  success: [16, 185, 129],
-  warning: [245, 158, 11],
-  danger: [239, 68, 68],
-  muted: [107, 114, 128],
-  light: [243, 244, 246],
-  dark: [31, 41, 55],
+  primary: [55, 65, 81],      // Charcoal gray
+  accent: [79, 70, 229],      // Indigo accent
+  success: [16, 185, 129],    // Green
+  danger: [220, 38, 38],      // Red
+  muted: [156, 163, 175],     // Light gray
+  light: [249, 250, 251],     // Off-white
+  dark: [17, 24, 39],         // Near black
+  divider: [229, 231, 235],   // Border gray
 };
 
 interface PDFExportOptions {
@@ -63,37 +42,12 @@ const getCategoryLabel = (categoryId: string, customCategories?: Array<{ id: str
   return custom?.label || categoryId;
 };
 
-const getCategoryColor = (categoryId: string): number[] => {
-  const colorMap: Record<string, number[]> = {
-    food: [249, 115, 22],
-    transport: [59, 130, 246],
-    shopping: [168, 85, 247],
-    bills: [234, 179, 8],
-    medical: [239, 68, 68],
-    subscriptions: [139, 92, 246],
-    education: [20, 184, 166],
-    tax: [180, 83, 9],
-    liabilities: [236, 72, 153],
-    investments: [34, 197, 94],
-    misc: [107, 114, 128],
-  };
-  return colorMap[categoryId] || COLORS.muted;
-};
-
-const convertToDefaultCurrency = (amount: number, fromCurrency: string, toCurrency: string): number => {
-  const rateFromUSD = EXCHANGE_RATES_TO_USD[fromCurrency] || 1;
-  const rateToUSD = EXCHANGE_RATES_TO_USD[toCurrency] || 1;
-  const amountInUSD = amount * rateFromUSD;
-  return amountInUSD / rateToUSD;
-};
-
 export const exportToPDF = async (options: PDFExportOptions): Promise<boolean> => {
   const {
     expenses,
     currencyIncomes,
     currencySavings = [],
     defaultCurrency,
-    defaultCurrencySymbol,
     monthlyIncome,
     startDate,
     endDate,
@@ -104,7 +58,7 @@ export const exportToPDF = async (options: PDFExportOptions): Promise<boolean> =
     selectedYear,
   } = options;
 
-  // Filter expenses by date range if provided
+  // Filter expenses by date range
   let filteredExpenses = expenses;
   if (startDate) {
     filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= startDate);
@@ -118,73 +72,48 @@ export const exportToPDF = async (options: PDFExportOptions): Promise<boolean> =
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
   let y = 0;
 
   // Helper functions
-  const setColor = (color: number[]) => {
-    doc.setTextColor(color[0], color[1], color[2]);
-  };
-
-  const setFillColor = (color: number[]) => {
-    doc.setFillColor(color[0], color[1], color[2]);
-  };
-
+  const setColor = (color: number[]) => doc.setTextColor(color[0], color[1], color[2]);
+  const setFillColor = (color: number[]) => doc.setFillColor(color[0], color[1], color[2]);
+  
   const checkNewPage = (neededHeight: number) => {
-    if (y + neededHeight > pageHeight - 30) {
+    if (y + neededHeight > pageHeight - 40) {
       doc.addPage();
-      y = 25;
+      y = 30;
     }
   };
 
-  const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, color: number[]) => {
-    setFillColor(color);
-    doc.roundedRect(x, y, w, h, r, r, 'F');
+  const drawDivider = (yPos: number) => {
+    doc.setDrawColor(COLORS.divider[0], COLORS.divider[1], COLORS.divider[2]);
+    doc.setLineWidth(0.3);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
   };
 
-  // ============== HEADER ==============
-  // Header background
-  setFillColor(COLORS.primary);
-  doc.rect(0, 0, pageWidth, 50, 'F');
+  // Calculate report metadata
+  let reportTitle = "Expense Report";
+  let reportPeriod = "";
+  const monthNames = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
 
-  // Gradient overlay effect (simulated with lighter rect)
-  setFillColor([99, 102, 241]);
-  doc.rect(0, 0, pageWidth, 25, 'F');
-
-  // Title
-  doc.setFontSize(28);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("MEET", 20, 28);
-  
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
-  doc.text("Expense Report", 20, 38);
-
-  // Report info box
-  doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255, 0.9);
-  
-  let reportTitle = "";
   if (scope === "month" && selectedMonth !== undefined && selectedYear) {
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"];
-    reportTitle = `${monthNames[selectedMonth]} ${selectedYear}`;
+    reportTitle = "Monthly Expense Report";
+    reportPeriod = `${monthNames[selectedMonth]} ${selectedYear}`;
   } else if (scope === "year" && selectedYear) {
-    reportTitle = `Year ${selectedYear}`;
+    reportTitle = "Annual Expense Report";
+    reportPeriod = `${selectedYear}`;
   } else if (scope === "purpose" && purposeName) {
-    reportTitle = `Purpose: ${purposeName}`;
+    reportTitle = "Purpose-Based Report";
+    reportPeriod = purposeName;
   } else if (startDate && endDate) {
-    reportTitle = `${format(startDate, "MMM dd, yyyy")} - ${format(endDate, "MMM dd, yyyy")}`;
+    reportPeriod = `${format(startDate, "MMM dd, yyyy")} – ${format(endDate, "MMM dd, yyyy")}`;
   } else {
-    reportTitle = `Generated: ${format(new Date(), "MMMM dd, yyyy")}`;
+    reportPeriod = format(new Date(), "MMMM yyyy");
   }
 
-  doc.text(reportTitle, pageWidth - 20, 28, { align: "right" });
-  doc.text(`${filteredExpenses.length} transactions`, pageWidth - 20, 38, { align: "right" });
-
-  y = 65;
-
-  // Group expenses by currency (keep original currency)
+  // Group expenses by currency
   const expensesByCurrency: Record<string, { total: number; count: number; expenses: Expense[] }> = {};
   filteredExpenses.forEach(exp => {
     const currency = exp.currency || defaultCurrency;
@@ -196,7 +125,10 @@ export const exportToPDF = async (options: PDFExportOptions): Promise<boolean> =
     expensesByCurrency[currency].expenses.push(exp);
   });
 
-  // Group incomes by currency
+  const expenseCurrencies = Object.keys(expensesByCurrency);
+  const uniqueCategories = new Set(filteredExpenses.map(e => e.category)).size;
+
+  // Group incomes and savings by currency
   const incomesByCurrency: Record<string, number> = {};
   if (monthlyIncome > 0) {
     incomesByCurrency[defaultCurrency] = monthlyIncome;
@@ -205,122 +137,164 @@ export const exportToPDF = async (options: PDFExportOptions): Promise<boolean> =
     incomesByCurrency[income.currency] = (incomesByCurrency[income.currency] || 0) + income.amount;
   });
 
-  // Get savings by currency
   const savingsByCurrency: Record<string, number> = {};
   currencySavings.forEach(saving => {
     savingsByCurrency[saving.currency] = saving.amount;
   });
 
-  const expenseCurrencies = Object.keys(expensesByCurrency);
+  // ============== COVER PAGE ==============
+  y = pageHeight / 2 - 60;
 
-  // ============== SUMMARY CARDS ==============
-  const cardWidth = (pageWidth - 50) / 3;
+  // App name
+  setColor(COLORS.accent);
+  doc.setFontSize(48);
+  doc.setFont("helvetica", "bold");
+  doc.text("MEET", pageWidth / 2, y, { align: "center" });
   
-  // Total Expenses Card
-  let totalExpenseDisplay = "";
+  // Tagline
+  y += 12;
+  setColor(COLORS.muted);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Monthly Expense Entry & Tracking", pageWidth / 2, y, { align: "center" });
+
+  // Divider
+  y += 20;
+  doc.setDrawColor(COLORS.divider[0], COLORS.divider[1], COLORS.divider[2]);
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth / 2 - 40, y, pageWidth / 2 + 40, y);
+
+  // Report title
+  y += 25;
+  setColor(COLORS.dark);
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text(reportTitle, pageWidth / 2, y, { align: "center" });
+
+  // Period
+  y += 12;
+  setColor(COLORS.primary);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "normal");
+  doc.text(reportPeriod, pageWidth / 2, y, { align: "center" });
+
+  // Total expenses highlight
+  y += 35;
+  setColor(COLORS.muted);
+  doc.setFontSize(10);
+  doc.text("TOTAL EXPENSES", pageWidth / 2, y, { align: "center" });
+  
+  y += 15;
+  let totalDisplay = "";
   if (expenseCurrencies.length === 1) {
     const currency = expenseCurrencies[0];
     const symbol = getCurrencySymbol(currency);
-    totalExpenseDisplay = `${symbol}${expensesByCurrency[currency].total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } else {
-    totalExpenseDisplay = expenseCurrencies.map(curr => {
+    totalDisplay = `${symbol}${expensesByCurrency[currency].total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  } else if (expenseCurrencies.length > 1) {
+    totalDisplay = expenseCurrencies.map(curr => {
       const symbol = getCurrencySymbol(curr);
-      return `${symbol}${expensesByCurrency[curr].total.toFixed(0)}`;
-    }).join(" | ");
+      return `${symbol}${expensesByCurrency[curr].total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    }).join("  •  ");
+  } else {
+    totalDisplay = "No expenses";
   }
-
-  drawRoundedRect(15, y, cardWidth, 35, 3, [254, 226, 226]);
-  setColor(COLORS.danger);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Total Expenses", 20, y + 12);
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.text(totalExpenseDisplay.length > 20 ? totalExpenseDisplay.substring(0, 18) + "..." : totalExpenseDisplay, 20, y + 25);
-
-  // Transactions Card
-  drawRoundedRect(20 + cardWidth, y, cardWidth, 35, 3, [219, 234, 254]);
-  setColor(COLORS.secondary);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Transactions", 25 + cardWidth, y + 12);
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text(filteredExpenses.length.toString(), 25 + cardWidth, y + 25);
-
-  // Categories Card
-  const uniqueCategories = new Set(filteredExpenses.map(e => e.category)).size;
-  drawRoundedRect(25 + cardWidth * 2, y, cardWidth, 35, 3, [220, 252, 231]);
-  setColor(COLORS.success);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Categories", 30 + cardWidth * 2, y + 12);
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text(uniqueCategories.toString(), 30 + cardWidth * 2, y + 25);
-
-  y += 50;
-
-  // ============== EXPENSES BY CURRENCY (in original currency) ==============
-  checkNewPage(60);
   
   setColor(COLORS.dark);
-  doc.setFontSize(14);
+  doc.setFontSize(28);
   doc.setFont("helvetica", "bold");
-  doc.text("Expenses by Currency", 15, y);
-  y += 10;
+  doc.text(totalDisplay, pageWidth / 2, y, { align: "center" });
 
-  expenseCurrencies.forEach((currency, idx) => {
-    checkNewPage(20);
-    const data = expensesByCurrency[currency];
-    const symbol = getCurrencySymbol(currency);
-    
-    // Currency row with background
-    if (idx % 2 === 0) {
-      drawRoundedRect(15, y - 4, pageWidth - 30, 14, 2, COLORS.light);
-    }
-    
-    setColor(COLORS.dark);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${currency}`, 20, y + 4);
-    
-    doc.setFont("helvetica", "normal");
+  // Summary stats
+  y += 30;
+  setColor(COLORS.muted);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  
+  const statsLine = `${filteredExpenses.length} transactions  •  ${uniqueCategories} categories  •  ${expenseCurrencies.length || 1} ${expenseCurrencies.length === 1 ? 'currency' : 'currencies'}`;
+  doc.text(statsLine, pageWidth / 2, y, { align: "center" });
+
+  // Generation date at bottom
+  setColor(COLORS.muted);
+  doc.setFontSize(9);
+  doc.text(`Generated on ${format(new Date(), "MMMM dd, yyyy 'at' h:mm a")}`, pageWidth / 2, pageHeight - 30, { align: "center" });
+
+  // ============== PAGE 2: EXPENSE SUMMARY ==============
+  doc.addPage();
+  y = 30;
+
+  // Section header
+  setColor(COLORS.dark);
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("Expense Summary", margin, y);
+  
+  y += 8;
+  drawDivider(y);
+  y += 20;
+
+  // Currency cards
+  if (expenseCurrencies.length === 0) {
     setColor(COLORS.muted);
-    doc.text(`${data.count} transactions`, 50, y + 4);
-    
-    setColor(COLORS.danger);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${symbol}${data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageWidth - 20, y + 4, { align: "right" });
-    
-    y += 14;
-  });
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "italic");
+    doc.text("No expenses recorded for this period.", margin, y);
+    y += 20;
+  } else {
+    expenseCurrencies.forEach((currency, idx) => {
+      checkNewPage(50);
+      const data = expensesByCurrency[currency];
+      const symbol = getCurrencySymbol(currency);
 
-  y += 15;
+      // Card background
+      setFillColor(COLORS.light);
+      doc.roundedRect(margin, y - 5, pageWidth - margin * 2, 40, 3, 3, 'F');
 
-  // ============== CATEGORY BREAKDOWN BY CURRENCY ==============
+      // Currency code
+      setColor(COLORS.accent);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(currency, margin + 10, y + 8);
+
+      // Amount
+      setColor(COLORS.dark);
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${symbol}${data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 10, y + 26);
+
+      // Transaction count
+      setColor(COLORS.muted);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${data.count} transaction${data.count !== 1 ? 's' : ''}`, pageWidth - margin - 10, y + 20, { align: "right" });
+
+      y += 50;
+    });
+  }
+
+  // ============== CATEGORY BREAKDOWN ==============
   expenseCurrencies.forEach(currency => {
     checkNewPage(80);
     const data = expensesByCurrency[currency];
     const symbol = getCurrencySymbol(currency);
 
-    // Section header with accent bar
-    setFillColor(COLORS.primary);
-    doc.rect(15, y, 4, 20, 'F');
+    y += 10;
     
+    // Section header
     setColor(COLORS.dark);
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text(`Category Breakdown - ${currency}`, 24, y + 8);
+    doc.text(`Spending by Category`, margin, y);
     
     setColor(COLORS.muted);
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Total: ${symbol}${data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 24, y + 16);
-    
-    y += 28;
+    doc.text(`${currency}`, margin + 75, y);
 
-    // Group by category
+    y += 6;
+    drawDivider(y);
+    y += 15;
+
+    // Group by category and sort by amount
     const categoryTotals: Record<string, number> = {};
     data.expenses.forEach(exp => {
       categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
@@ -329,190 +303,209 @@ export const exportToPDF = async (options: PDFExportOptions): Promise<boolean> =
     const sortedCategories = Object.entries(categoryTotals)
       .sort((a, b) => b[1] - a[1]);
 
-    // Draw category bars
     sortedCategories.forEach(([catId, total]) => {
-      checkNewPage(16);
+      checkNewPage(18);
       const label = getCategoryLabel(catId, customCategories);
       const percentage = (total / data.total) * 100;
-      const barWidth = Math.max(percentage * 1.2, 5);
-      const catColor = getCategoryColor(catId);
 
-      // Category name
+      // Category row
       setColor(COLORS.dark);
-      doc.setFontSize(9);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text(label, 20, y + 4);
+      doc.text(label, margin + 5, y + 4);
 
-      // Progress bar background
-      drawRoundedRect(65, y, 80, 6, 2, COLORS.light);
-      
-      // Progress bar fill
-      drawRoundedRect(65, y, Math.min(barWidth, 80), 6, 2, catColor);
-
-      // Amount and percentage
-      setColor(COLORS.dark);
+      // Amount aligned right
       doc.setFont("helvetica", "bold");
-      doc.text(`${symbol}${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 150, y + 4);
-      
-      setColor(COLORS.muted);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${percentage.toFixed(1)}%`, pageWidth - 20, y + 4, { align: "right" });
+      const amountText = `${symbol}${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      doc.text(amountText, pageWidth - margin - 40, y + 4, { align: "right" });
 
-      y += 12;
+      // Percentage
+      setColor(COLORS.muted);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${percentage.toFixed(1)}%`, pageWidth - margin - 5, y + 4, { align: "right" });
+
+      // Subtle separator
+      y += 10;
+      doc.setDrawColor(COLORS.divider[0], COLORS.divider[1], COLORS.divider[2]);
+      doc.setLineWidth(0.2);
+      doc.line(margin + 5, y, pageWidth - margin - 5, y);
+      
+      y += 8;
     });
 
     y += 10;
   });
 
   // ============== SAVINGS SUMMARY ==============
-  checkNewPage(60);
+  // Only show currencies that have actual savings data
+  const currenciesWithSavings = Object.keys(savingsByCurrency).filter(c => savingsByCurrency[c] !== undefined);
   
-  setFillColor(COLORS.success);
-  doc.rect(15, y, 4, 20, 'F');
-  
-  setColor(COLORS.dark);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text("Savings Summary", 24, y + 12);
-  y += 28;
-
-  const allCurrencies = new Set([...Object.keys(incomesByCurrency), ...expenseCurrencies, ...Object.keys(savingsByCurrency)]);
-  
-  // Table header
-  drawRoundedRect(15, y - 4, pageWidth - 30, 14, 2, COLORS.primary);
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text("Currency", 20, y + 4);
-  doc.text("Base Savings", 60, y + 4);
-  doc.text("Expenses", 105, y + 4);
-  doc.text("Net Savings", pageWidth - 20, y + 4, { align: "right" });
-  y += 14;
-
-  Array.from(allCurrencies).forEach((currency, idx) => {
-    checkNewPage(14);
-    const baseSavings = savingsByCurrency[currency] || 0;
-    const expense = expensesByCurrency[currency]?.total || 0;
-    const netSavings = baseSavings - expense;
-    const symbol = getCurrencySymbol(currency);
-
-    if (idx % 2 === 0) {
-      drawRoundedRect(15, y - 4, pageWidth - 30, 12, 2, COLORS.light);
-    }
+  if (currenciesWithSavings.length > 0) {
+    checkNewPage(80);
+    y += 10;
 
     setColor(COLORS.dark);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Savings Overview", margin, y);
+
+    y += 6;
+    drawDivider(y);
+    y += 20;
+
+    // Table header
+    setColor(COLORS.muted);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(currency, 20, y + 3);
+    doc.text("CURRENCY", margin + 5, y);
+    doc.text("EXPENSES", 90, y);
+    doc.text("NET SAVINGS", pageWidth - margin - 5, y, { align: "right" });
     
-    doc.setFont("helvetica", "normal");
-    setColor(COLORS.muted);
-    doc.text(`${symbol}${baseSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 60, y + 3);
-    
-    setColor(COLORS.danger);
-    doc.text(`${symbol}${expense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 105, y + 3);
-    
-    if (netSavings >= 0) {
-      setColor(COLORS.success);
-    } else {
-      setColor(COLORS.danger);
-    }
-    doc.setFont("helvetica", "bold");
-    doc.text(`${netSavings >= 0 ? '+' : ''}${symbol}${netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageWidth - 20, y + 3, { align: "right" });
-
     y += 12;
-  });
 
-  y += 15;
+    currenciesWithSavings.forEach((currency) => {
+      checkNewPage(20);
+      const baseSavings = savingsByCurrency[currency] || 0;
+      const income = incomesByCurrency[currency] || 0;
+      const expense = expensesByCurrency[currency]?.total || 0;
+      const netSavings = baseSavings + income - expense;
+      const symbol = getCurrencySymbol(currency);
 
-  // ============== EXPENSE DETAILS ==============
+      // Alternating row background
+      setFillColor(COLORS.light);
+      doc.roundedRect(margin, y - 5, pageWidth - margin * 2, 16, 2, 2, 'F');
+
+      // Currency
+      setColor(COLORS.dark);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(currency, margin + 5, y + 4);
+
+      // Expenses
+      setColor(COLORS.danger);
+      doc.setFont("helvetica", "normal");
+      doc.text(`-${symbol}${expense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 90, y + 4);
+
+      // Net Savings
+      if (netSavings >= 0) {
+        setColor(COLORS.success);
+      } else {
+        setColor(COLORS.danger);
+      }
+      doc.setFont("helvetica", "bold");
+      doc.text(`${netSavings >= 0 ? '+' : ''}${symbol}${netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageWidth - margin - 5, y + 4, { align: "right" });
+
+      y += 20;
+    });
+  }
+
+  // ============== TRANSACTION DETAILS ==============
   expenseCurrencies.forEach(currency => {
-    checkNewPage(50);
+    checkNewPage(60);
     const data = expensesByCurrency[currency];
     const symbol = getCurrencySymbol(currency);
 
+    doc.addPage();
+    y = 30;
+
     // Section header
-    setFillColor(COLORS.secondary);
-    doc.rect(15, y, 4, 16, 'F');
-    
     setColor(COLORS.dark);
-    doc.setFontSize(11);
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text(`Transaction Details - ${currency}`, 24, y + 10);
-    y += 24;
+    doc.text(`Transaction Details`, margin, y);
+    
+    setColor(COLORS.muted);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${currency} • ${data.count} transactions`, margin + 80, y);
+
+    y += 6;
+    drawDivider(y);
+    y += 15;
 
     // Table header
-    drawRoundedRect(15, y - 4, pageWidth - 30, 12, 2, COLORS.dark);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
+    setFillColor(COLORS.light);
+    doc.roundedRect(margin, y - 5, pageWidth - margin * 2, 14, 2, 2, 'F');
+    
+    setColor(COLORS.muted);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("Date", 18, y + 3);
-    doc.text("Category", 45, y + 3);
-    doc.text("Notes", 90, y + 3);
-    doc.text("Amount", pageWidth - 18, y + 3, { align: "right" });
-    y += 12;
+    doc.text("DATE", margin + 5, y + 4);
+    doc.text("CATEGORY", 55, y + 4);
+    doc.text("NOTES", 100, y + 4);
+    doc.text("AMOUNT", pageWidth - margin - 5, y + 4, { align: "right" });
+    
+    y += 16;
 
     // Sort expenses by date (newest first)
     const sortedExpenses = [...data.expenses].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
-    sortedExpenses.slice(0, 50).forEach((exp, idx) => {
-      checkNewPage(10);
+    sortedExpenses.forEach((exp, idx) => {
+      checkNewPage(14);
       
-      if (idx % 2 === 0) {
-        drawRoundedRect(15, y - 3, pageWidth - 30, 9, 1, COLORS.light);
-      }
-
       const dateStr = format(new Date(exp.date), "MMM dd");
       const categoryLabel = getCategoryLabel(exp.category, customCategories);
-      const notesStr = (exp.notes || "-").substring(0, 25);
+      const notesStr = (exp.notes || "—").substring(0, 30);
+
+      // Alternating subtle background
+      if (idx % 2 === 0) {
+        setFillColor([254, 254, 254]);
+      } else {
+        setFillColor(COLORS.light);
+      }
+      doc.roundedRect(margin, y - 4, pageWidth - margin * 2, 12, 1, 1, 'F');
 
       setColor(COLORS.muted);
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(dateStr, 18, y + 2);
+      doc.text(dateStr, margin + 5, y + 3);
       
       setColor(COLORS.dark);
-      doc.text(categoryLabel.substring(0, 12), 45, y + 2);
+      doc.setFontSize(9);
+      doc.text(categoryLabel.substring(0, 15), 55, y + 3);
       
       setColor(COLORS.muted);
-      doc.text(notesStr, 90, y + 2);
+      doc.text(notesStr, 100, y + 3);
       
-      setColor(COLORS.danger);
+      setColor(COLORS.dark);
       doc.setFont("helvetica", "bold");
-      doc.text(`${symbol}${exp.amount.toFixed(2)}`, pageWidth - 18, y + 2, { align: "right" });
+      doc.text(`${symbol}${exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageWidth - margin - 5, y + 3, { align: "right" });
 
-      y += 9;
+      y += 12;
     });
-
-    if (sortedExpenses.length > 50) {
-      setColor(COLORS.muted);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "italic");
-      doc.text(`... and ${sortedExpenses.length - 50} more transactions`, 18, y + 5);
-      y += 10;
-    }
-
-    y += 15;
   });
 
-  // ============== FOOTER ==============
+  // ============== FOOTER ON ALL PAGES ==============
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     
-    // Footer line
-    doc.setDrawColor(229, 231, 235);
-    doc.setLineWidth(0.5);
-    doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    // Footer divider
+    doc.setDrawColor(COLORS.divider[0], COLORS.divider[1], COLORS.divider[2]);
+    doc.setLineWidth(0.3);
+    doc.line(margin, pageHeight - 18, pageWidth - margin, pageHeight - 18);
     
     // Footer text
     setColor(COLORS.muted);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("Generated by MEET - Monthly Expense Entry & Tracking", 15, pageHeight - 8);
-    doc.text(`Page ${i} of ${totalPages}`, pageWidth - 15, pageHeight - 8, { align: "right" });
+    
+    // Left: Generated by
+    doc.text("Generated by MEET", margin, pageHeight - 10);
+    
+    // Center: Report type
+    let reportType = "";
+    if (scope === "month") reportType = "Monthly Report";
+    else if (scope === "year") reportType = "Annual Report";
+    else if (scope === "purpose") reportType = "Purpose Report";
+    else reportType = "Expense Report";
+    doc.text(reportType, pageWidth / 2, pageHeight - 10, { align: "center" });
+    
+    // Right: Page number
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: "right" });
   }
 
   // Generate PDF blob
