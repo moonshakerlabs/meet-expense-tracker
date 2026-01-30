@@ -39,6 +39,8 @@ import { Expense, Purpose, CurrencyIncome, CurrencySavings, CURRENCIES } from "@
 import { exportToCSV, exportToJSON } from "@/lib/exportUtils";
 import { exportToPDF, generatePDFPreview, PDFColorTheme, PDFOrientation, PDFOptions } from "@/lib/pdfExport";
 import { toast } from "sonner";
+import { FeatureAccess } from "@/types/subscription";
+import CSVExportWarning from "@/components/CSVExportWarning";
 
 type ExportScope = "month" | "year" | "purpose";
 type ExportFormat = "pdf" | "csv" | "json";
@@ -54,6 +56,8 @@ interface ExportReportsDialogProps {
   defaultCurrencySymbol: string;
   monthlyIncome: number;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
+  featureAccess?: FeatureAccess;
+  onShowFreemiumGate?: (featureName: string) => void;
 }
 
 const MONTHS = [
@@ -79,6 +83,8 @@ const ExportReportsDialog = ({
   defaultCurrencySymbol,
   monthlyIncome,
   customCategories,
+  featureAccess,
+  onShowFreemiumGate,
 }: ExportReportsDialogProps) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [scope, setScope] = useState<ExportScope | null>(null);
@@ -87,6 +93,7 @@ const ExportReportsDialog = ({
   const [selectedPurposeId, setSelectedPurposeId] = useState<string>("");
   const [format, setFormat] = useState<ExportFormat | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showCSVWarning, setShowCSVWarning] = useState(false);
 
   // PDF Options
   const [pdfOptions, setPdfOptions] = useState<PDFOptions>({
@@ -554,8 +561,14 @@ const ExportReportsDialog = ({
               <Card
                 className={`p-4 cursor-pointer transition-all duration-200 ${
                   format === "pdf" ? "ring-2 ring-primary bg-primary/5" : "hover:bg-secondary"
-                }`}
-                onClick={() => setFormat("pdf")}
+                } ${!featureAccess?.exportPDF ? "opacity-60" : ""}`}
+                onClick={() => {
+                  if (featureAccess?.exportPDF) {
+                    setFormat("pdf");
+                  } else {
+                    onShowFreemiumGate?.("Export PDF reports");
+                  }
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -566,6 +579,7 @@ const ExportReportsDialog = ({
                       <p className="font-medium">PDF Report</p>
                       <p className="text-sm text-muted-foreground">
                         Professional formatted report with charts
+                        {!featureAccess?.exportPDF && " (Freemium)"}
                       </p>
                     </div>
                   </div>
@@ -609,7 +623,7 @@ const ExportReportsDialog = ({
                     <div>
                       <p className="font-medium">JSON Data</p>
                       <p className="text-sm text-muted-foreground">
-                        Raw data format for developers
+                        Backup format for re-import
                       </p>
                     </div>
                   </div>

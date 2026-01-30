@@ -17,12 +17,16 @@ import InstallPrompt from "@/components/InstallPrompt";
 import PinLockScreen from "@/components/PinLockScreen";
 import PinSetup from "@/components/PinSetup";
 import Privacy from "@/pages/Privacy";
+import UpgradeScreen from "@/components/UpgradeScreen";
+import FreemiumGate from "@/components/FreemiumGate";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
 import { useIncome } from "@/hooks/useIncome";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useBackButton, exitApp } from "@/hooks/useBackButton";
 import { UserSettings, Category } from "@/types/expense";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type View = "dashboard" | "add-expense" | "settings" | "finance-menu" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "manage-purposes" | "purpose-detail" | "pin-setup" | "privacy" | "app-tour";
+type View = "dashboard" | "add-expense" | "settings" | "finance-menu" | "expense-list" | "category-detail" | "income" | "recurring" | "manage-categories" | "manage-purposes" | "purpose-detail" | "pin-setup" | "privacy" | "app-tour" | "upgrade";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -46,11 +50,14 @@ const Index = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [showFreemiumGate, setShowFreemiumGate] = useState(false);
+  const [gatedFeatureName, setGatedFeatureName] = useState("");
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
   const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings, addPurpose, updatePurpose, removePurpose } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal, markAsGenerated } = useRecurringExpenses();
+  const { tier: subscriptionTier, featureAccess, hasFeature, startTrial, isTrialActive, getTrialDaysRemaining, trialUsed, acknowledgeDataProtection, resetSubscription } = useSubscription();
 
   // Handle back button navigation
   const getBackHandler = () => {
@@ -69,6 +76,8 @@ const Index = () => {
       case "manage-purposes":
         return () => setCurrentView("finance-menu");
       case "privacy":
+        return () => setCurrentView("settings");
+      case "upgrade":
         return () => setCurrentView("settings");
       case "pin-setup":
         return () => {
@@ -96,6 +105,24 @@ const Index = () => {
   const handleClearAllData = () => {
     clearAllExpenses();
     resetSettings();
+    resetSubscription();
+  };
+
+  // Handle freemium gate
+  const showGate = (featureName: string) => {
+    setGatedFeatureName(featureName);
+    setShowFreemiumGate(true);
+  };
+
+  // Handle start trial
+  const handleStartTrial = () => {
+    const success = startTrial();
+    if (success) {
+      toast.success("7-day trial started! Enjoy all Freemium features.");
+      setCurrentView("settings");
+    } else {
+      toast.error("Trial has already been used.");
+    }
   };
 
   const handleViewCategory = (category: Category, date: Date) => {
@@ -167,7 +194,12 @@ const Index = () => {
   }
 
   if (!settings.hasCompletedOnboarding) {
-    return <Onboarding onComplete={(newSettings: Partial<UserSettings>) => updateSettings(newSettings)} />;
+    return (
+      <Onboarding 
+        onComplete={(newSettings: Partial<UserSettings>) => updateSettings(newSettings)} 
+        onAcknowledgeData={acknowledgeDataProtection}
+      />
+    );
   }
 
   // Show app tour on first launch after onboarding
@@ -231,7 +263,9 @@ const Index = () => {
           hiddenCategories={settings.hiddenCategories}
           customCategories={settings.customCategories}
           country={settings.country}
-          purposes={settings.purposes}
+          purposes={featureAccess.assignPurposeToExpenses ? settings.purposes : []}
+          canUseMultipleCurrencies={featureAccess.useMultipleCurrencies}
+          onShowFreemiumGate={() => showGate("Multiple currencies")}
         />
       )}
 
@@ -247,6 +281,9 @@ const Index = () => {
           onViewPrivacy={() => setCurrentView("privacy")}
           onViewAppTour={handleViewAppTour}
           onResetApp={handleClearAllData}
+          onViewUpgrade={() => setCurrentView("upgrade")}
+          subscriptionTier={subscriptionTier}
+          trialDaysRemaining={getTrialDaysRemaining()}
         />
       )}
 
@@ -258,7 +295,13 @@ const Index = () => {
           expenses={expenses}
           onImportExpenses={importExpenses}
           onManageCategories={() => setCurrentView("manage-categories")}
-          onManagePurposes={() => setCurrentView("manage-purposes")}
+          onManagePurposes={() => {
+            if (featureAccess.managePurposes) {
+              setCurrentView("manage-purposes");
+            } else {
+              showGate("Manage purposes");
+            }
+          }}
           onViewIncome={() => setCurrentView("income")}
           onViewRecurring={() => setCurrentView("recurring")}
           onAddCurrencyIncome={addCurrencyIncome}
@@ -267,6 +310,8 @@ const Index = () => {
           onAddCurrencySavings={addCurrencySavings}
           onUpdateCurrencySavings={updateCurrencySavings}
           onRemoveCurrencySavings={removeCurrencySavings}
+          featureAccess={featureAccess}
+          onShowFreemiumGate={showGate}
         />
       )}
 
@@ -383,7 +428,28 @@ const Index = () => {
         <Privacy onBack={() => setCurrentView("settings")} />
       )}
 
+      {currentView === "upgrade" && (
+        <UpgradeScreen
+          onBack={() => setCurrentView("settings")}
+          onStartTrial={handleStartTrial}
+          trialUsed={trialUsed}
+          isTrialActive={isTrialActive()}
+          trialDaysRemaining={getTrialDaysRemaining()}
+        />
+      )}
+
       <InstallPrompt />
+
+      {/* Freemium Gate Dialog */}
+      <FreemiumGate
+        open={showFreemiumGate}
+        onOpenChange={setShowFreemiumGate}
+        featureName={gatedFeatureName}
+        onUpgrade={() => {
+          setShowFreemiumGate(false);
+          setCurrentView("upgrade");
+        }}
+      />
 
       {/* Exit Confirmation Dialog */}
       <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>

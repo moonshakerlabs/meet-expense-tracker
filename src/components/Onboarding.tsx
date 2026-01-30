@@ -2,17 +2,19 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CURRENCIES, COUNTRIES, LANGUAGES, UserSettings } from "@/types/expense";
-import { Check, Sun, Moon, Smartphone, ChevronRight, ChevronLeft, Search } from "lucide-react";
+import { Check, Sun, Moon, Smartphone, ChevronRight, ChevronLeft, Search, Shield, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface OnboardingProps {
   onComplete: (settings: Partial<UserSettings>) => void;
+  onAcknowledgeData?: () => void;
 }
 
-type Step = "welcome" | "name" | "country" | "currency" | "theme";
+type Step = "welcome" | "name" | "country" | "currency" | "theme" | "acknowledge";
 
-const Onboarding = ({ onComplete }: OnboardingProps) => {
+const Onboarding = ({ onComplete, onAcknowledgeData }: OnboardingProps) => {
   const [step, setStep] = useState<Step>("welcome");
   const [userName, setUserName] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
@@ -20,6 +22,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
   const [selectedTheme, setSelectedTheme] = useState<"light" | "dark" | "system">("system");
   const [countrySearch, setCountrySearch] = useState("");
+  const [dataAcknowledged, setDataAcknowledged] = useState(false);
 
   const handleCountrySelect = (countryCode: string) => {
     setSelectedCountry(countryCode);
@@ -43,8 +46,12 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     setStep("theme");
   };
 
+  const handleThemeNext = () => {
+    setStep("acknowledge");
+  };
+
   const handleBack = () => {
-    const stepOrder: Step[] = ["welcome", "name", "country", "currency", "theme"];
+    const stepOrder: Step[] = ["welcome", "name", "country", "currency", "theme", "acknowledge"];
     const currentIndex = stepOrder.indexOf(step);
     if (currentIndex > 0) {
       setStep(stepOrder[currentIndex - 1]);
@@ -52,6 +59,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   };
 
   const handleComplete = () => {
+    onAcknowledgeData?.();
     const currency = CURRENCIES.find((c) => c.code === selectedCurrency);
     onComplete({
       userName: userName.trim() || undefined,
@@ -77,7 +85,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 safe-top safe-bottom">
       {/* Progress indicators */}
       <div className="flex gap-2 mb-8">
-        {["welcome", "name", "country", "currency", "theme"].map((s, i) => (
+        {["welcome", "name", "country", "currency", "theme", "acknowledge"].map((s, i) => (
           <div
             key={s}
             className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -249,10 +257,21 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
           <h1 className="font-display font-bold text-2xl mb-2 text-center">
             Confirm Currency
           </h1>
-          <p className="text-muted-foreground mb-6 text-center">
+          <p className="text-muted-foreground mb-4 text-center">
             We've pre-selected based on your country. Change if needed.
           </p>
-          <ScrollArea className="h-[320px] mb-6">
+          
+          {/* Freemium notice */}
+          <Card className="p-3 mb-4 bg-amber-500/10 border-amber-500/20 rounded-xl">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                <strong>Note:</strong> Changing country or currency later is available only with Freemium.
+              </p>
+            </div>
+          </Card>
+          
+          <ScrollArea className="h-[280px] mb-6">
             <div className="grid grid-cols-2 gap-3 pr-4">
               {CURRENCIES.map((currency) => (
                 <Card
@@ -348,7 +367,58 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             <Button
               size="lg"
               className="flex-1 rounded-2xl h-14 text-lg font-semibold"
+              onClick={handleThemeNext}
+            >
+              Continue
+              <ChevronRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === "acknowledge" && (
+        <div className="animate-fade-in max-w-sm w-full text-center">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+            <Shield className="w-8 h-8 text-emerald-500" />
+          </div>
+          <h1 className="font-display font-bold text-2xl mb-2">
+            Data Protection
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            Your privacy matters. Please acknowledge the following before continuing.
+          </p>
+          
+          <Card className="p-4 rounded-2xl mb-6 text-left">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="data-acknowledge"
+                checked={dataAcknowledged}
+                onCheckedChange={(checked) => setDataAcknowledged(checked === true)}
+                className="mt-1"
+              />
+              <label 
+                htmlFor="data-acknowledge" 
+                className="text-sm leading-relaxed cursor-pointer"
+              >
+                I understand that <strong>MEET stores my data only on my device</strong> and does not upload it to any server. I am responsible for backing up my data regularly.
+              </label>
+            </div>
+          </Card>
+          
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-2xl h-14 px-6"
+              onClick={handleBack}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button
+              size="lg"
+              className="flex-1 rounded-2xl h-14 text-lg font-semibold"
               onClick={handleComplete}
+              disabled={!dataAcknowledged}
             >
               Start Tracking
               <ChevronRight className="ml-2 w-5 h-5" />
