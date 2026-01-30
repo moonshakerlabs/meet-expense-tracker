@@ -50,7 +50,7 @@ const Index = () => {
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
   const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings, addPurpose, updatePurpose, removePurpose } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
-  const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal } = useRecurringExpenses();
+  const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal, markAsGenerated } = useRecurringExpenses();
 
   // Handle back button navigation
   const getBackHandler = () => {
@@ -195,16 +195,29 @@ const Index = () => {
           onOpenSettings={() => setCurrentView("settings")}
           onOpenFinanceMenu={() => setCurrentView("finance-menu")}
           onViewCategory={handleViewCategory}
-          onViewIncome={() => setCurrentView("income")}
           onViewRecurring={() => setCurrentView("recurring")}
           onViewPurpose={handleViewPurpose}
-          monthlyIncome={getMonthlyIncome()}
           userName={settings.userName}
           customCategories={settings.customCategories}
-          currencyIncomes={settings.currencyIncomes}
           currencySavings={settings.currencySavings}
           country={settings.country}
           purposes={settings.purposes}
+          incomes={incomes}
+          recurringExpenses={recurringExpenses}
+          onMarkRecurringAsGenerated={markAsGenerated}
+          onAddExpenseFromRecurring={(data) => {
+            // Check if expense already exists for this recurring on this date
+            const existingExpense = expenses.find(e => 
+              e.recurringId === data.recurringId && 
+              new Date(e.date).toDateString() === new Date(data.date).toDateString()
+            );
+            if (!existingExpense) {
+              addExpense(data);
+            }
+          }}
+          showUpcomingPayments={settings.showUpcomingPayments}
+          showSpendingByCategory={settings.showSpendingByCategory}
+          showMonthlySpending={settings.showMonthlySpending}
         />
       )}
 

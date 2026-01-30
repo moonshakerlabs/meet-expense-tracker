@@ -124,6 +124,10 @@ export interface UserSettings {
   customIncomeSources: CustomIncomeSource[];
   userName?: string; // User's display name
   purposes?: Purpose[]; // User-defined purposes for expense tracking
+  // Dashboard visibility toggles
+  showUpcomingPayments?: boolean;
+  showSpendingByCategory?: boolean;
+  showMonthlySpending?: boolean;
 }
 
 // Countries sorted alphabetically by name

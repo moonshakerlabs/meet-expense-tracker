@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, Wallet, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu } from "lucide-react";
-import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencyIncome, CurrencySavings } from "@/types/expense";
+import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu, Clock } from "lucide-react";
+import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencySavings, RecurringExpense } from "@/types/expense";
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ import {
   CarouselPrevious,
   CarouselNext,
 } from "@/components/ui/carousel";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { startOfDay, format } from "date-fns";
 
 interface DashboardProps {
   expenses: Expense[];
@@ -39,13 +39,31 @@ interface DashboardProps {
   onViewIncome?: () => void;
   onViewRecurring?: () => void;
   onViewPurpose?: (purposeId: string) => void;
-  monthlyIncome?: number;
   userName?: string;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
-  currencyIncomes?: CurrencyIncome[];
   currencySavings?: CurrencySavings[];
   country?: string;
   purposes?: Array<{ id: string; label: string; createdAt: Date }>;
+  // Income data for savings calculation
+  getMonthlyIncomeBySource?: () => Record<string, number>;
+  incomes?: Array<{ amount: number; currency?: string; currencySymbol?: string; isRecurring: boolean; isActive: boolean }>;
+  // Recurring expenses for upcoming payments
+  recurringExpenses?: RecurringExpense[];
+  onMarkRecurringAsGenerated?: (id: string) => void;
+  onAddExpenseFromRecurring?: (data: {
+    amount: number;
+    category: string;
+    subcategory?: string;
+    notes?: string;
+    date: Date;
+    currency: string;
+    currencySymbol: string;
+    recurringId?: string;
+  }) => void;
+  // Dashboard visibility toggles
+  showUpcomingPayments?: boolean;
+  showSpendingByCategory?: boolean;
+  showMonthlySpending?: boolean;
 }
 
 const MONTHS = [
@@ -63,21 +81,23 @@ const Dashboard = ({
   onOpenSettings,
   onOpenFinanceMenu,
   onViewCategory,
-  onViewIncome,
   onViewRecurring,
   onViewPurpose,
-  monthlyIncome = 0,
   userName,
   customCategories = [],
-  currencyIncomes = [],
   currencySavings = [],
-  country,
   purposes = [],
+  incomes = [],
+  recurringExpenses = [],
+  onMarkRecurringAsGenerated,
+  onAddExpenseFromRecurring,
+  showUpcomingPayments = true,
+  showSpendingByCategory = true,
+  showMonthlySpending = true,
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly" | "purpose">("monthly");
   const [expandedCurrencies, setExpandedCurrencies] = useState<Record<string, boolean>>({});
-  const [selectedPurpose, setSelectedPurpose] = useState<string | null>(null);
   const [expandedMonths, setExpandedMonths] = useState(false);
   
   const month = selectedDate.getMonth();
@@ -250,15 +270,114 @@ const Dashboard = ({
 
   const monthName = selectedDate.toLocaleString("default", { month: "long", year: "numeric" });
   const isCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
-  
-  const defaultCurrencyData = categoryDataByCurrency.find(d => d.currency === defaultCurrency);
-  const defaultCurrencyTotal = defaultCurrencyData?.total || 0;
-  const savings = monthlyIncome - defaultCurrencyTotal;
 
   const handleViewMonth = (monthIndex: number) => {
     setSelectedDate(new Date(year, monthIndex, 1));
     setViewMode("monthly");
   };
+
+  // Calculate total income by currency (from income entries)
+  const totalIncomeByCurrency = useMemo(() => {
+    const totals: Record<string, { amount: number; symbol: string }> = {};
+    incomes.forEach((income) => {
+      if (income.isRecurring && !income.isActive) return;
+      const curr = income.currency || defaultCurrency;
+      const symbol = income.currencySymbol || defaultCurrencySymbol;
+      if (!totals[curr]) {
+        totals[curr] = { amount: 0, symbol };
+      }
+      totals[curr].amount += income.amount;
+    });
+    return totals;
+  }, [incomes, defaultCurrency, defaultCurrencySymbol]);
+
+  // Calculate expenses by currency for the current month
+  const expensesByCurrency = useMemo(() => {
+    const totals: Record<string, number> = {};
+    monthlyExpenses.forEach((e) => {
+      const curr = e.currency || defaultCurrency;
+      totals[curr] = (totals[curr] || 0) + e.amount;
+    });
+    return totals;
+  }, [monthlyExpenses, defaultCurrency]);
+
+  // Calculate net savings by currency: Previous Savings + Income - Expenses
+  // Only show savings for currencies that exist in currencySavings
+  const netSavingsByCurrency = useMemo(() => {
+    const result: Array<{ currency: string; symbol: string; netSavings: number }> = [];
+    
+    currencySavings.forEach((saving) => {
+      const baseSavings = saving.amount;
+      const income = totalIncomeByCurrency[saving.currency]?.amount || 0;
+      const expense = expensesByCurrency[saving.currency] || 0;
+      const netSavings = baseSavings + income - expense;
+      
+      result.push({
+        currency: saving.currency,
+        symbol: saving.currencySymbol,
+        netSavings,
+      });
+    });
+    
+    return result;
+  }, [currencySavings, totalIncomeByCurrency, expensesByCurrency]);
+
+  // Upcoming payments: recurring expenses that are due
+  const upcomingPayments = useMemo(() => {
+    if (!recurringExpenses) return [];
+    const today = startOfDay(new Date());
+    
+    return recurringExpenses
+      .filter((r) => r.isActive)
+      .map((r) => ({
+        ...r,
+        nextDueDate: new Date(r.nextDueDate),
+      }))
+      .sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime())
+      .slice(0, 5); // Show max 5 upcoming
+  }, [recurringExpenses]);
+
+  // Track which recurring expenses have been processed to prevent duplicates
+  const processedRecurringRef = useRef<Set<string>>(new Set());
+
+  // Auto-convert due recurring expenses to regular expenses
+  useEffect(() => {
+    if (!recurringExpenses || !onMarkRecurringAsGenerated || !onAddExpenseFromRecurring) return;
+    
+    const today = startOfDay(new Date());
+    
+    recurringExpenses.forEach((r) => {
+      if (!r.isActive) return;
+      const nextDue = startOfDay(new Date(r.nextDueDate));
+      
+      // Create a unique key for this specific due date
+      const processKey = `${r.id}-${nextDue.toISOString()}`;
+      
+      // Skip if already processed
+      if (processedRecurringRef.current.has(processKey)) return;
+      
+      // If due date has passed or is today, auto-generate expense
+      if (today >= nextDue) {
+        // Mark as processed first to prevent duplicates
+        processedRecurringRef.current.add(processKey);
+        
+        // Add as regular expense
+        onAddExpenseFromRecurring({
+          amount: r.amount,
+          category: r.category,
+          subcategory: r.subcategory,
+          notes: `${r.name} (Recurring)`,
+          date: new Date(r.nextDueDate),
+          currency: defaultCurrency,
+          currencySymbol: defaultCurrencySymbol,
+          recurringId: r.id,
+        });
+        
+        // Mark as generated (this will update nextDueDate)
+        onMarkRecurringAsGenerated(r.id);
+      }
+    });
+  }, [recurringExpenses, onMarkRecurringAsGenerated, onAddExpenseFromRecurring, defaultCurrency, defaultCurrencySymbol]);
 
   return (
     <div className="min-h-screen bg-background pb-24 safe-top">
@@ -364,54 +483,56 @@ const Dashboard = ({
           )}
         </div>
 
-        {/* Main Stats Card */}
-        <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-3xl mb-4">
-          <p className="text-sm opacity-80 mb-1">
-            {viewMode === "yearly" ? `${year} Total Spending` : "Monthly Spending"}
-          </p>
-          
-          {categoryDataByCurrency.length > 1 ? (
-            <Carousel className="w-full mb-3">
-              <CarouselContent>
-                {categoryDataByCurrency.map((data) => (
-                  <CarouselItem key={data.currency}>
-                    <div className="text-center py-2">
-                      <h2 className="font-display font-bold text-4xl mb-1">
-                        {data.symbol}{data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </h2>
-                      <p className="text-sm opacity-70">{data.currency} · {data.count} txn</p>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <div className="flex justify-center gap-2 mt-2">
-                <CarouselPrevious className="static translate-y-0 h-8 w-8 bg-primary-foreground/20 border-0 text-primary-foreground hover:bg-primary-foreground/30" />
-                <CarouselNext className="static translate-y-0 h-8 w-8 bg-primary-foreground/20 border-0 text-primary-foreground hover:bg-primary-foreground/30" />
-              </div>
-            </Carousel>
-          ) : categoryDataByCurrency.length === 1 ? (
-            <h2 className="font-display font-bold text-4xl mb-4">
-              {categoryDataByCurrency[0].symbol}{categoryDataByCurrency[0].total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </h2>
-          ) : (
-            <h2 className="font-display font-bold text-4xl mb-4">
-              {formatCurrency(0)}
-            </h2>
-          )}
-          
-          <div className="flex gap-6">
-            <div>
-              <p className="text-xs opacity-70">Transactions</p>
-              <p className="font-semibold">{viewMode === "yearly" ? yearlyExpenses.length : monthlyExpenses.length}</p>
-            </div>
-            {isCurrentMonth && viewMode === "monthly" && (
-              <div>
-                <p className="text-xs opacity-70">Today</p>
-                <p className="font-semibold">{formatCurrency(todayTotal)}</p>
-              </div>
+        {/* Main Stats Card - Monthly Spending (toggleable) */}
+        {showMonthlySpending && (
+          <Card className="p-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-3xl mb-4">
+            <p className="text-sm opacity-80 mb-1">
+              {viewMode === "yearly" ? `${year} Total Spending` : "Monthly Spending"}
+            </p>
+            
+            {categoryDataByCurrency.length > 1 ? (
+              <Carousel className="w-full mb-3">
+                <CarouselContent>
+                  {categoryDataByCurrency.map((data) => (
+                    <CarouselItem key={data.currency}>
+                      <div className="text-center py-2">
+                        <h2 className="font-display font-bold text-4xl mb-1">
+                          {data.symbol}{data.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </h2>
+                        <p className="text-sm opacity-70">{data.currency} · {data.count} txn</p>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <div className="flex justify-center gap-2 mt-2">
+                  <CarouselPrevious className="static translate-y-0 h-8 w-8 bg-primary-foreground/20 border-0 text-primary-foreground hover:bg-primary-foreground/30" />
+                  <CarouselNext className="static translate-y-0 h-8 w-8 bg-primary-foreground/20 border-0 text-primary-foreground hover:bg-primary-foreground/30" />
+                </div>
+              </Carousel>
+            ) : categoryDataByCurrency.length === 1 ? (
+              <h2 className="font-display font-bold text-4xl mb-4">
+                {categoryDataByCurrency[0].symbol}{categoryDataByCurrency[0].total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h2>
+            ) : (
+              <h2 className="font-display font-bold text-4xl mb-4">
+                {formatCurrency(0)}
+              </h2>
             )}
-          </div>
-        </Card>
+            
+            <div className="flex gap-6">
+              <div>
+                <p className="text-xs opacity-70">Transactions</p>
+                <p className="font-semibold">{viewMode === "yearly" ? yearlyExpenses.length : monthlyExpenses.length}</p>
+              </div>
+              {isCurrentMonth && viewMode === "monthly" && (
+                <div>
+                  <p className="text-xs opacity-70">Today</p>
+                  <p className="font-semibold">{formatCurrency(todayTotal)}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Yearly View: Monthly Breakdown with Expand/Collapse */}
         {viewMode === "yearly" && monthlyBreakdown.length > 0 && (
@@ -523,92 +644,75 @@ const Dashboard = ({
           </Card>
         )}
 
-        {/* Income & Savings Cards (only in monthly view) */}
-        {viewMode === "monthly" && (monthlyIncome > 0 || currencyIncomes.length > 0 || currencySavings.length > 0) && (
-          <div className="mb-4 space-y-3">
-            {/* Default currency income + savings */}
-            {monthlyIncome > 0 && (
-              <div className="grid grid-cols-2 gap-3">
-                <Card
-                  className="p-4 rounded-2xl cursor-pointer hover:bg-secondary/50 transition-colors"
-                  onClick={onViewIncome}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-emerald-500" />
+        {/* Savings by Currency (only in monthly view, only for currencies with savings data) */}
+        {viewMode === "monthly" && netSavingsByCurrency.length > 0 && (
+          <div className="mb-4">
+            <Card className="p-4 rounded-2xl">
+              <p className="text-xs text-muted-foreground mb-3">Savings by Currency</p>
+              <div className="space-y-2">
+                {netSavingsByCurrency.map((saving) => (
+                  <div key={saving.currency} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <PiggyBank className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm">{saving.currency}</span>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Income</p>
-                      <p className="font-semibold">{formatCurrency(monthlyIncome)}</p>
-                    </div>
+                    <span className={`font-medium ${saving.netSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {saving.symbol}{Math.abs(saving.netSavings).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {saving.netSavings < 0 && ' (-)'}
+                    </span>
                   </div>
-                </Card>
-                <Card className="p-4 rounded-2xl">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${savings >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
-                      <PiggyBank className={`w-5 h-5 ${savings >= 0 ? 'text-emerald-500' : 'text-destructive'}`} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Savings</p>
-                      <p className={`font-semibold ${savings < 0 ? 'text-destructive' : ''}`}>
-                        {formatCurrency(Math.abs(savings))}
-                        {savings < 0 && ' (-)'}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
+                ))}
               </div>
-            )}
-            
-            {/* Multi-currency incomes */}
-            {currencyIncomes.length > 0 && (
-              <Card className="p-4 rounded-2xl">
-                <p className="text-xs text-muted-foreground mb-3">Income by Currency</p>
-                <div className="space-y-2">
-                  {currencyIncomes.map((income) => (
-                    <div key={income.currency} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="w-4 h-4 text-emerald-500" />
-                        <span className="text-sm">{income.currency}</span>
-                      </div>
-                      <span className="font-medium text-emerald-600">
-                        {income.currencySymbol}{income.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {/* Savings by Currency (from settings - expenses) */}
-            {currencySavings.length > 0 && (
-              <Card className="p-4 rounded-2xl">
-                <p className="text-xs text-muted-foreground mb-3">Savings by Currency</p>
-                <div className="space-y-2">
-                  {currencySavings.map((saving) => {
-                    const currencyExpenses = monthlyExpenses
-                      .filter(e => e.currency === saving.currency)
-                      .reduce((sum, e) => sum + e.amount, 0);
-                    const netSavings = saving.amount - currencyExpenses;
-                    return (
-                      <div key={saving.currency} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <PiggyBank className="w-4 h-4 text-amber-500" />
-                          <span className="text-sm">{saving.currency}</span>
-                          <span className="text-xs text-muted-foreground">
-                            (Base: {saving.currencySymbol}{saving.amount.toLocaleString()})
-                          </span>
-                        </div>
-                        <span className={`font-medium ${netSavings >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                          {netSavings >= 0 ? '+' : ''}{saving.currencySymbol}{netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            )}
+            </Card>
           </div>
+        )}
+
+        {/* Upcoming Payments (only in monthly view, toggleable) */}
+        {viewMode === "monthly" && showUpcomingPayments && upcomingPayments.length > 0 && (
+          <Card className="p-5 rounded-2xl mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Upcoming Payments</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-primary"
+                onClick={onViewRecurring}
+              >
+                Manage
+                <ArrowUpRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {upcomingPayments.map((payment) => {
+                const builtInCategory = CATEGORIES.find((c) => c.id === payment.category);
+                const customCategory = customCategories.find((c) => c.id === payment.category);
+                const categoryIcon = builtInCategory?.icon || customCategory?.icon || "📦";
+                
+                return (
+                  <div key={payment.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                      style={{
+                        backgroundColor: `${CATEGORY_COLORS[payment.category as Category] || CATEGORY_COLORS.misc}20`,
+                      }}
+                    >
+                      {categoryIcon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{payment.name}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>{format(payment.nextDueDate, "MMM d, yyyy")}</span>
+                      </div>
+                    </div>
+                    <p className="font-semibold text-primary">
+                      {defaultCurrencySymbol}{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
         )}
 
         {/* Quick Stats */}
@@ -644,8 +748,8 @@ const Dashboard = ({
           </Card>
         </div>
 
-        {/* Category Breakdown - Expandable */}
-        {categoryDataByCurrency.length > 0 && (
+        {/* Category Breakdown - Expandable (toggleable) */}
+        {showSpendingByCategory && categoryDataByCurrency.length > 0 && (
           <Card className="p-5 rounded-2xl mb-6">
             <h3 className="font-semibold mb-4">Spending by Category</h3>
             
