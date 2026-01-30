@@ -217,17 +217,20 @@ const UpgradeScreen = ({
               <Award className="w-5 h-5 mr-2" />
               Start 7-day Free Trial
             </Button>
-            {isNativeAndroid && billingAvailable && (
+            {isNativeAndroid && billingAvailable ? (
               <Button
                 size="lg"
-                variant="outline"
-                className="w-full rounded-2xl h-12"
+                className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
                 onClick={handlePurchase}
                 disabled={isPurchasing || billingLoading}
               >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                {isPurchasing ? "Processing..." : `Buy Now ${productPrice || ""}`}
+                <ShoppingCart className="w-5 h-5 mr-2" />
+                {isPurchasing ? "Processing..." : `Upgrade to Freemium ${productPrice || ""}`}
               </Button>
+            ) : (
+              <p className="text-xs text-center text-muted-foreground">
+                Purchase available in the Android app
+              </p>
             )}
           </div>
         ) : isTrialActive ? (
