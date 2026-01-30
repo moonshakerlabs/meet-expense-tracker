@@ -636,6 +636,9 @@ const ExportReportsDialog = ({
                 onClick={() => {
                   if (format === "pdf") {
                     setStep(4);
+                  } else if (format === "csv") {
+                    // Show CSV warning before export
+                    setShowCSVWarning(true);
                   } else {
                     handleExport();
                   }
@@ -659,6 +662,20 @@ const ExportReportsDialog = ({
                   </>
                 )}
               </Button>
+
+              {/* CSV Export Warning */}
+              <CSVExportWarning
+                open={showCSVWarning}
+                onOpenChange={setShowCSVWarning}
+                onExportCSV={() => {
+                  setShowCSVWarning(false);
+                  handleExport();
+                }}
+                onUseJSON={() => {
+                  setShowCSVWarning(false);
+                  setFormat("json");
+                }}
+              />
             </div>
           )}
 

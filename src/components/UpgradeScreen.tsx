@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Check, Crown, Sparkles, Clock } from "lucide-react";
+import { ArrowLeft, Check, Crown, Award, Clock } from "lucide-react";
 import { FREE_FEATURES, FREEMIUM_FEATURES } from "@/types/subscription";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -94,7 +94,7 @@ const UpgradeScreen = ({
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
+                <Award className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-lg">Plus with Freemium</h3>
             </div>
@@ -102,7 +102,7 @@ const UpgradeScreen = ({
               <div className="space-y-3">
                 {FREEMIUM_FEATURES.map((feature, index) => (
                   <div key={index} className="flex items-start gap-3">
-                    <Sparkles className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <Award className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                     <p className="text-sm">{feature}</p>
                   </div>
                 ))}
@@ -134,7 +134,7 @@ const UpgradeScreen = ({
             className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
             onClick={onStartTrial}
           >
-            <Sparkles className="w-5 h-5 mr-2" />
+            <Award className="w-5 h-5 mr-2" />
             Start 7-day Free Trial
           </Button>
         ) : isTrialActive ? (
