@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -15,10 +15,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, FileText, FileJson, Download, Calendar, CalendarDays, Target, Check, ChevronRight } from "lucide-react";
-import { Expense, Purpose, CurrencyIncome, CurrencySavings } from "@/types/expense";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { 
+  ArrowLeft, 
+  FileText, 
+  FileJson, 
+  Download, 
+  Calendar, 
+  CalendarDays, 
+  Target, 
+  Check, 
+  ChevronRight,
+  PieChart,
+  BarChart3,
+  Palette,
+  RotateCw,
+  Eye,
+  RefreshCw
+} from "lucide-react";
+import { Expense, Purpose, CurrencyIncome, CurrencySavings, CURRENCIES } from "@/types/expense";
 import { exportToCSV, exportToJSON } from "@/lib/exportUtils";
-import { exportToPDF } from "@/lib/pdfExport";
+import { exportToPDF, generatePDFPreview, PDFColorTheme, PDFOrientation, PDFOptions } from "@/lib/pdfExport";
 import { toast } from "sonner";
 
 type ExportScope = "month" | "year" | "purpose";
@@ -42,6 +61,13 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+const COLOR_THEMES: { value: PDFColorTheme; label: string; color: string }[] = [
+  { value: "green", label: "Emerald", color: "bg-emerald-500" },
+  { value: "blue", label: "Blue", color: "bg-blue-500" },
+  { value: "black", label: "Black", color: "bg-gray-900" },
+  { value: "mixed", label: "Mixed", color: "bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500" },
+];
+
 const ExportReportsDialog = ({
   open,
   onOpenChange,
@@ -54,13 +80,26 @@ const ExportReportsDialog = ({
   monthlyIncome,
   customCategories,
 }: ExportReportsDialogProps) => {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [scope, setScope] = useState<ExportScope | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedPurposeId, setSelectedPurposeId] = useState<string>("");
   const [format, setFormat] = useState<ExportFormat | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  // PDF Options
+  const [pdfOptions, setPdfOptions] = useState<PDFOptions>({
+    includePieChart: true,
+    includeBarChart: true,
+    currencyFilter: "all",
+    colorTheme: "green",
+    orientation: "portrait",
+  });
+
+  // Preview state
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
   // Get available years from expenses
   const availableYears = useMemo(() => {
@@ -73,6 +112,25 @@ const ExportReportsDialog = ({
     return Array.from(years).sort((a, b) => b - a);
   }, [expenses]);
 
+  // Get available currencies from expenses
+  const availableCurrencies = useMemo(() => {
+    const currencies = new Set<string>();
+    currencies.add(defaultCurrency);
+    expenses.forEach(exp => {
+      if (exp.currency) currencies.add(exp.currency);
+    });
+    return Array.from(currencies);
+  }, [expenses, defaultCurrency]);
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const resetDialog = () => {
     setStep(1);
     setScope(null);
@@ -80,6 +138,17 @@ const ExportReportsDialog = ({
     setSelectedYear(new Date().getFullYear());
     setSelectedPurposeId("");
     setFormat(null);
+    setPdfOptions({
+      includePieChart: true,
+      includeBarChart: true,
+      currencyFilter: "all",
+      colorTheme: "green",
+      orientation: "portrait",
+    });
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -122,6 +191,51 @@ const ExportReportsDialog = ({
     return {};
   };
 
+  const getPDFExportOptions = () => {
+    const filteredExpenses = getFilteredExpenses();
+    const { startDate, endDate } = getDateRange();
+    const purposeName = scope === "purpose" 
+      ? purposes.find(p => p.id === selectedPurposeId)?.label 
+      : undefined;
+
+    return {
+      expenses: filteredExpenses,
+      currencyIncomes,
+      currencySavings,
+      defaultCurrency,
+      defaultCurrencySymbol,
+      monthlyIncome,
+      startDate,
+      endDate,
+      customCategories,
+      purposeName,
+      scope,
+      selectedMonth,
+      selectedYear,
+      pdfOptions,
+    };
+  };
+
+  const handleGeneratePreview = async () => {
+    setIsGeneratingPreview(true);
+    
+    // Cleanup previous preview
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    try {
+      const url = await generatePDFPreview(getPDFExportOptions());
+      setPreviewUrl(url);
+      setStep(5);
+    } catch (error) {
+      console.error("Preview generation error:", error);
+      toast.error("Failed to generate preview");
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
   const handleExport = async () => {
     if (!format) return;
 
@@ -142,26 +256,7 @@ const ExportReportsDialog = ({
         exportToJSON(filteredExpenses, defaultCurrencySymbol, defaultCurrency);
         toast.success(`Exported ${filteredExpenses.length} expenses as JSON`);
       } else if (format === "pdf") {
-        const { startDate, endDate } = getDateRange();
-        const purposeName = scope === "purpose" 
-          ? purposes.find(p => p.id === selectedPurposeId)?.label 
-          : undefined;
-
-        const success = await exportToPDF({
-          expenses: filteredExpenses,
-          currencyIncomes,
-          currencySavings,
-          defaultCurrency,
-          defaultCurrencySymbol,
-          monthlyIncome,
-          startDate,
-          endDate,
-          customCategories,
-          purposeName,
-          scope,
-          selectedMonth,
-          selectedYear,
-        });
+        const success = await exportToPDF(getPDFExportOptions());
 
         if (success) {
           toast.success("PDF report exported successfully");
@@ -196,6 +291,16 @@ const ExportReportsDialog = ({
     return "";
   };
 
+  const handleBackFromStep = (currentStep: number) => {
+    if (currentStep === 5) {
+      setStep(4);
+    } else if (currentStep === 4) {
+      setStep(3);
+    } else {
+      setStep((currentStep - 1) as 1 | 2 | 3);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="bottom" className="rounded-t-3xl h-[85vh]">
@@ -206,7 +311,7 @@ const ExportReportsDialog = ({
                 variant="ghost"
                 size="icon"
                 className="rounded-xl h-8 w-8"
-                onClick={() => setStep((step - 1) as 1 | 2 | 3)}
+                onClick={() => handleBackFromStep(step)}
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
@@ -215,17 +320,19 @@ const ExportReportsDialog = ({
               {step === 1 && "Export Reports"}
               {step === 2 && "Select Details"}
               {step === 3 && "Choose Format"}
+              {step === 4 && "PDF Options"}
+              {step === 5 && "Preview Report"}
             </SheetTitle>
           </div>
           
           {/* Progress indicator */}
           <div className="flex gap-2 mt-3">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4, 5].map((s) => (
               <div
                 key={s}
                 className={`h-1 flex-1 rounded-full transition-colors ${
                   s <= step ? "bg-primary" : "bg-muted"
-                }`}
+                } ${format !== "pdf" && s > 3 ? "hidden" : ""}`}
               />
             ))}
           </div>
@@ -458,7 +565,7 @@ const ExportReportsDialog = ({
                     <div>
                       <p className="font-medium">PDF Report</p>
                       <p className="text-sm text-muted-foreground">
-                        Beautiful formatted report with charts
+                        Professional formatted report with charts
                       </p>
                     </div>
                   </div>
@@ -512,13 +619,24 @@ const ExportReportsDialog = ({
 
               <Button
                 className="w-full h-12 mt-4"
-                onClick={handleExport}
+                onClick={() => {
+                  if (format === "pdf") {
+                    setStep(4);
+                  } else {
+                    handleExport();
+                  }
+                }}
                 disabled={!canExport || isExporting}
               >
                 {isExporting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
                     Exporting...
+                  </>
+                ) : format === "pdf" ? (
+                  <>
+                    Customize PDF
+                    <ChevronRight className="w-4 h-4 ml-2" />
                   </>
                 ) : (
                   <>
@@ -527,6 +645,212 @@ const ExportReportsDialog = ({
                   </>
                 )}
               </Button>
+            </div>
+          )}
+
+          {/* Step 4: PDF Options */}
+          {step === 4 && (
+            <div className="space-y-5 pb-8">
+              <p className="text-sm text-muted-foreground">
+                Customize your PDF report appearance
+              </p>
+
+              {/* Chart Options */}
+              <Card className="p-4 space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  Chart Options
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="include-bar" className="text-sm">
+                    Include Bar Chart
+                  </Label>
+                  <Switch
+                    id="include-bar"
+                    checked={pdfOptions.includeBarChart}
+                    onCheckedChange={(checked) => 
+                      setPdfOptions(prev => ({ ...prev, includeBarChart: checked }))
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="include-pie" className="text-sm">
+                    Include Category Visualization
+                  </Label>
+                  <Switch
+                    id="include-pie"
+                    checked={pdfOptions.includePieChart}
+                    onCheckedChange={(checked) => 
+                      setPdfOptions(prev => ({ ...prev, includePieChart: checked }))
+                    }
+                  />
+                </div>
+              </Card>
+
+              {/* Currency Filter */}
+              {availableCurrencies.length > 1 && (
+                <Card className="p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <span className="w-4 h-4 flex items-center justify-center text-primary font-bold">$</span>
+                    Currency Filter
+                  </div>
+                  
+                  <Select
+                    value={pdfOptions.currencyFilter}
+                    onValueChange={(v) => 
+                      setPdfOptions(prev => ({ ...prev, currencyFilter: v }))
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border">
+                      <SelectItem value="all">All Currencies</SelectItem>
+                      {availableCurrencies.map((code) => {
+                        const currency = CURRENCIES.find(c => c.code === code);
+                        return (
+                          <SelectItem key={code} value={code}>
+                            {currency?.symbol || code} {code}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </Card>
+              )}
+
+              {/* Color Theme */}
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Palette className="w-4 h-4 text-primary" />
+                  Color Theme
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {COLOR_THEMES.map((theme) => (
+                    <button
+                      key={theme.value}
+                      className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${
+                        pdfOptions.colorTheme === theme.value 
+                          ? "border-primary bg-primary/5" 
+                          : "border-border hover:bg-secondary"
+                      }`}
+                      onClick={() => 
+                        setPdfOptions(prev => ({ ...prev, colorTheme: theme.value }))
+                      }
+                    >
+                      <div className={`w-5 h-5 rounded-full ${theme.color}`} />
+                      <span className="text-sm font-medium">{theme.label}</span>
+                      {pdfOptions.colorTheme === theme.value && (
+                        <Check className="w-4 h-4 text-primary ml-auto" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Orientation */}
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <RotateCw className="w-4 h-4 text-primary" />
+                  Page Orientation
+                </div>
+                
+                <RadioGroup
+                  value={pdfOptions.orientation}
+                  onValueChange={(v: PDFOrientation) => 
+                    setPdfOptions(prev => ({ ...prev, orientation: v }))
+                  }
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="portrait" id="portrait" />
+                    <Label htmlFor="portrait" className="text-sm cursor-pointer">
+                      Portrait
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="landscape" id="landscape" />
+                    <Label htmlFor="landscape" className="text-sm cursor-pointer">
+                      Landscape
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </Card>
+
+              <Button
+                className="w-full h-12 mt-4"
+                onClick={handleGeneratePreview}
+                disabled={isGeneratingPreview}
+              >
+                {isGeneratingPreview ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                    Generating Preview...
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview Report
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Step 5: Preview */}
+          {step === 5 && (
+            <div className="space-y-4 pb-8">
+              {previewUrl ? (
+                <div className="rounded-xl overflow-hidden border border-border bg-white">
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-[50vh] bg-white"
+                    title="PDF Preview"
+                  />
+                </div>
+              ) : (
+                <div className="h-[50vh] flex items-center justify-center bg-muted rounded-xl">
+                  <p className="text-muted-foreground">Preview not available</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12"
+                  onClick={() => {
+                    setStep(4);
+                    if (previewUrl) {
+                      URL.revokeObjectURL(previewUrl);
+                      setPreviewUrl(null);
+                    }
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Change Options
+                </Button>
+                
+                <Button
+                  className="flex-1 h-12"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </ScrollArea>
