@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserSettings, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw, Crown, Clock } from "lucide-react";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw, Crown, Clock, Download, RefreshCw } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +23,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { SubscriptionTier } from "@/types/subscription";
+import { useAppUpdate } from "@/hooks/useAppUpdate";
 
 interface SettingsPanelProps {
   settings: UserSettings;
@@ -59,6 +60,41 @@ const SettingsPanel = ({
   const [showNameSheet, setShowNameSheet] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [newName, setNewName] = useState(settings.userName || "");
+
+  const {
+    updateAvailable,
+    isChecking: isCheckingUpdate,
+    isUpdating,
+    isNativeAndroid,
+    checkForUpdate,
+    startFlexibleUpdate,
+    openAppStore,
+  } = useAppUpdate();
+
+  const handleCheckForUpdate = async () => {
+    toast.loading("Checking for updates...");
+    const hasUpdate = await checkForUpdate();
+    if (hasUpdate) {
+      toast.success("Update available!", {
+        description: "A new version is available. Tap to update.",
+      });
+    } else {
+      toast.success("App is up to date");
+    }
+  };
+
+  const handleStartUpdate = async () => {
+    toast.loading("Starting update...");
+    const success = await startFlexibleUpdate();
+    if (success) {
+      toast.success("Downloading update...", {
+        description: "The update will install when ready.",
+      });
+    } else {
+      // Fallback to opening store
+      openAppStore();
+    }
+  };
 
   const themes = [
     { id: "light" as const, icon: Sun, label: "Light", desc: "Clean & bright" },
@@ -139,6 +175,53 @@ const SettingsPanel = ({
           </Card>
         </div>
 
+        {/* App Update - Only on Android */}
+        {isNativeAndroid && (
+          <div>
+            <Card className="rounded-2xl overflow-hidden">
+              <button
+                className={`w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors ${
+                  updateAvailable ? "bg-gradient-to-r from-blue-500/5 to-cyan-500/5" : ""
+                }`}
+                onClick={updateAvailable ? handleStartUpdate : handleCheckForUpdate}
+                disabled={isCheckingUpdate || isUpdating}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    updateAvailable 
+                      ? "bg-gradient-to-br from-blue-500 to-cyan-500" 
+                      : "bg-secondary"
+                  }`}>
+                    {isCheckingUpdate || isUpdating ? (
+                      <RefreshCw className={`w-5 h-5 ${updateAvailable ? "text-white" : ""} animate-spin`} />
+                    ) : (
+                      <Download className={`w-5 h-5 ${updateAvailable ? "text-white" : ""}`} />
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium">
+                      {updateAvailable ? "Update Available" : "Check for Updates"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {isCheckingUpdate 
+                        ? "Checking..." 
+                        : isUpdating 
+                        ? "Downloading..."
+                        : updateAvailable 
+                        ? "Tap to download & install" 
+                        : "Get the latest version"
+                      }
+                    </p>
+                  </div>
+                </div>
+                {updateAvailable && !isUpdating && (
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                )}
+              </button>
+            </Card>
+          </div>
+        )}
+
         {/* Profile */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3 px-1">
@@ -157,7 +240,7 @@ const SettingsPanel = ({
                   <User className="w-5 h-5 text-primary" />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium">Edit App Name</p>
+                  <p className="font-medium">App User Name</p>
                   <p className="text-sm text-muted-foreground">
                     {settings.userName || "Set your name"}
                   </p>
@@ -373,7 +456,7 @@ const SettingsPanel = ({
       <Sheet open={showNameSheet} onOpenChange={setShowNameSheet}>
         <SheetContent side="bottom" className="rounded-t-3xl">
           <SheetHeader className="mb-4">
-            <SheetTitle>Edit App Name</SheetTitle>
+            <SheetTitle>App User Name</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 pb-8">
             <Input
