@@ -377,7 +377,7 @@ const SettingsPanel = ({
                   Monthly Expense Entry & Tracking
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Version 1.0.0
+                  Version 3.1.0
                 </p>
                 <p className="text-xs text-muted-foreground mt-4">
                   Built with Love by MoonShaker Labs
