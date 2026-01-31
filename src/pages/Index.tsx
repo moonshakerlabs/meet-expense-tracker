@@ -19,11 +19,13 @@ import PinSetup from "@/components/PinSetup";
 import Privacy from "@/pages/Privacy";
 import UpgradeScreen from "@/components/UpgradeScreen";
 import FreemiumGate from "@/components/FreemiumGate";
+import UpdateAvailableDialog from "@/components/UpdateAvailableDialog";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useSettings } from "@/hooks/useSettings";
 import { useIncome } from "@/hooks/useIncome";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAppUpdate } from "@/hooks/useAppUpdate";
 import { useBackButton, exitApp } from "@/hooks/useBackButton";
 import { UserSettings, Category } from "@/types/expense";
 import { toast } from "sonner";
@@ -52,12 +54,34 @@ const Index = () => {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showFreemiumGate, setShowFreemiumGate] = useState(false);
   const [gatedFeatureName, setGatedFeatureName] = useState("");
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   const { expenses, addExpense, updateExpense, deleteExpense, clearAllExpenses, importExpenses, migrateExpensesCurrency, hasLoaded: expensesLoaded } = useExpenses();
   const { settings, isLoading, updateSettings, formatCurrency, resetSettings, addCustomCategory, removeCustomCategory, addCustomSubcategory, removeCustomSubcategory, updateSubcategory, hideCategory, showCategory, enablePin, disablePin, updatePin, completeAppTour, resetAppTour, addIncomeSource, removeIncomeSource, updateIncomeSource, addCurrencyIncome, updateCurrencyIncome, removeCurrencyIncome, addCurrencySavings, updateCurrencySavings, removeCurrencySavings, addPurpose, updatePurpose, removePurpose } = useSettings();
   const { incomes, addIncome, updateIncome, deleteIncome, stopRecurringIncome, getMonthlyIncome } = useIncome();
   const { recurringExpenses, addRecurringExpense, updateRecurringExpense, deleteRecurringExpense, toggleActive, getExpectedMonthlyTotal, markAsGenerated } = useRecurringExpenses();
   const { tier: subscriptionTier, featureAccess, hasFeature, startTrial, upgradeToPaid, isTrialActive, isPaid, getTrialDaysRemaining, trialUsed, acknowledgeDataProtection, resetSubscription } = useSubscription();
+  const { updateAvailable, isUpdating, startFlexibleUpdate, openAppStore, isNativeAndroid } = useAppUpdate();
+
+  // Show update dialog on launch when update is available
+  useEffect(() => {
+    if (updateAvailable && !showSplash && settings.hasCompletedOnboarding && settings.hasSeenAppTour) {
+      // Small delay to let the app settle before showing dialog
+      const timer = setTimeout(() => {
+        setShowUpdateDialog(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [updateAvailable, showSplash, settings.hasCompletedOnboarding, settings.hasSeenAppTour]);
+
+  const handleUpdateApp = async () => {
+    const started = await startFlexibleUpdate();
+    if (!started) {
+      // Fallback to opening Play Store
+      openAppStore();
+    }
+    setShowUpdateDialog(false);
+  };
 
   // Handle back button navigation
   const getBackHandler = () => {
@@ -453,6 +477,16 @@ const Index = () => {
           setCurrentView("upgrade");
         }}
       />
+
+      {/* Update Available Dialog */}
+      {isNativeAndroid && (
+        <UpdateAvailableDialog
+          open={showUpdateDialog}
+          onOpenChange={setShowUpdateDialog}
+          onUpdate={handleUpdateApp}
+          isUpdating={isUpdating}
+        />
+      )}
 
       {/* Exit Confirmation Dialog */}
       <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
