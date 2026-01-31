@@ -221,10 +221,10 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || !billingAvailable || isPurchasing || billingLoading}
+              disabled={!isNativeAndroid || isPurchasing || billingLoading}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : `Upgrade to Freemium ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : billingLoading ? "Loading..." : `Upgrade to Freemium ${productPrice || ""}`}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -237,17 +237,15 @@ const UpgradeScreen = ({
             <p className="text-sm text-center text-muted-foreground mb-2">
               You're enjoying Freemium features
             </p>
-            {isNativeAndroid && billingAvailable && (
-              <Button
-                size="lg"
-                className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
-                onClick={handlePurchase}
-                disabled={isPurchasing || billingLoading}
-              >
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
-              </Button>
-            )}
+            <Button
+              size="lg"
+              className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              onClick={handlePurchase}
+              disabled={!isNativeAndroid || isPurchasing || billingLoading}
+            >
+              <ShoppingCart className="w-5 h-5 mr-2" />
+              {isPurchasing ? "Processing..." : billingLoading ? "Loading..." : `Unlock Forever ${productPrice || ""}`}
+            </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
                 Purchase available in the Android app
@@ -259,22 +257,18 @@ const UpgradeScreen = ({
             <p className="text-sm text-center text-muted-foreground mb-2">
               Your trial has ended. Upgrade to unlock Freemium features.
             </p>
-            {isNativeAndroid && billingAvailable ? (
-              <Button
-                size="lg"
-                className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
-                onClick={handlePurchase}
-                disabled={isPurchasing || billingLoading}
-              >
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
-              </Button>
-            ) : (
+            <Button
+              size="lg"
+              className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
+              onClick={handlePurchase}
+              disabled={!isNativeAndroid || isPurchasing || billingLoading}
+            >
+              <ShoppingCart className="w-5 h-5 mr-2" />
+              {isPurchasing ? "Processing..." : billingLoading ? "Loading..." : `Unlock Forever ${productPrice || ""}`}
+            </Button>
+            {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
-                {isNativeAndroid 
-                  ? "Unable to connect to Google Play. Please try again later."
-                  : "Purchase available in the Android app"
-                }
+                Purchase available in the Android app
               </p>
             )}
           </div>
