@@ -143,23 +143,42 @@ export const useGooglePlayBilling = () => {
 
       console.log("[Billing] Starting purchase for product:", FREEMIUM_PRODUCT_ID);
       
-      const transaction = await NativePurchases.purchaseProduct({
-        productIdentifier: FREEMIUM_PRODUCT_ID,
-        productType: "INAPP" as any,
-      });
+      let transaction: any;
+      try {
+        transaction = await NativePurchases.purchaseProduct({
+          productIdentifier: FREEMIUM_PRODUCT_ID,
+          productType: "INAPP" as any,
+        });
+      } catch (purchaseError: any) {
+        console.error("[Billing] purchaseProduct threw:", purchaseError);
+        // Some plugins throw on user cancel instead of returning
+        if (purchaseError?.code === "USER_CANCELED" || 
+            purchaseError?.message?.toLowerCase().includes("cancel") ||
+            purchaseError?.message?.toLowerCase().includes("user cancelled")) {
+          setState((prev) => ({ ...prev, isPurchasing: false, error: null }));
+          return false;
+        }
+        throw purchaseError;
+      }
 
       console.log("[Billing] Transaction result:", JSON.stringify(transaction));
 
-      // Check if purchase was successful
-      if (
-        transaction.purchaseState === "PURCHASED" ||
-        transaction.isAcknowledged
-      ) {
+      // Handle various response shapes from the plugin
+      const purchaseState = transaction?.purchaseState || transaction?.transactionState;
+      const isAcknowledged = transaction?.isAcknowledged || transaction?.acknowledged;
+      const isPurchased = purchaseState === "PURCHASED" || 
+                          purchaseState === 1 || 
+                          purchaseState === "purchased" ||
+                          isAcknowledged === true;
+
+      console.log("[Billing] Parsed state - purchaseState:", purchaseState, "isAcknowledged:", isAcknowledged, "isPurchased:", isPurchased);
+
+      if (isPurchased) {
         console.log("[Billing] Purchase successful!");
         setState((prev) => ({ ...prev, isPurchasing: false }));
         return true;
       } else {
-        console.log("[Billing] Purchase not completed, state:", transaction.purchaseState);
+        console.log("[Billing] Purchase not completed, state:", purchaseState);
         setState((prev) => ({
           ...prev,
           isPurchasing: false,
