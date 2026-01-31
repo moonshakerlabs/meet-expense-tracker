@@ -36,8 +36,8 @@ export const useAppUpdate = () => {
     }
   }, [isNativeAndroid]);
 
-  // Check for updates
-  const checkForUpdate = useCallback(async () => {
+  // Check for updates with timeout
+  const checkForUpdate = useCallback(async (timeoutMs: number = 10000) => {
     if (!isNativeAndroid) {
       console.log("[AppUpdate] Not on Android, skipping update check");
       return false;
@@ -52,7 +52,17 @@ export const useAppUpdate = () => {
         return false;
       }
 
-      const result = await AppUpdate.getAppUpdateInfo();
+      // Create a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Update check timed out")), timeoutMs);
+      });
+
+      // Race between the actual check and the timeout
+      const result = await Promise.race([
+        AppUpdate.getAppUpdateInfo(),
+        timeoutPromise,
+      ]);
+
       console.log("[AppUpdate] Update info:", JSON.stringify(result));
 
       const updateAvailable = result.updateAvailability === 2; // UPDATE_AVAILABLE
