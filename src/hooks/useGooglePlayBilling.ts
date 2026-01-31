@@ -121,6 +121,8 @@ export const useGooglePlayBilling = () => {
 
   // Purchase Freemium upgrade
   const purchaseFreemium = useCallback(async (): Promise<boolean> => {
+    console.log("[Billing] purchaseFreemium called, isNativeAndroid:", isNativeAndroid);
+    
     if (!isNativeAndroid) {
       setState((prev) => ({
         ...prev,
@@ -133,23 +135,31 @@ export const useGooglePlayBilling = () => {
 
     try {
       const NativePurchases = await getPlugin();
+      console.log("[Billing] Plugin loaded:", !!NativePurchases);
+      
       if (!NativePurchases) {
         throw new Error("Billing plugin not available");
       }
 
+      console.log("[Billing] Starting purchase for product:", FREEMIUM_PRODUCT_ID);
+      
       const transaction = await NativePurchases.purchaseProduct({
         productIdentifier: FREEMIUM_PRODUCT_ID,
         productType: "INAPP" as any,
       });
+
+      console.log("[Billing] Transaction result:", JSON.stringify(transaction));
 
       // Check if purchase was successful
       if (
         transaction.purchaseState === "PURCHASED" ||
         transaction.isAcknowledged
       ) {
+        console.log("[Billing] Purchase successful!");
         setState((prev) => ({ ...prev, isPurchasing: false }));
         return true;
       } else {
+        console.log("[Billing] Purchase not completed, state:", transaction.purchaseState);
         setState((prev) => ({
           ...prev,
           isPurchasing: false,
@@ -158,7 +168,8 @@ export const useGooglePlayBilling = () => {
         return false;
       }
     } catch (error: any) {
-      console.error("Purchase error:", error);
+      console.error("[Billing] Purchase error:", error);
+      console.error("[Billing] Error details:", JSON.stringify(error));
 
       // Handle user cancellation gracefully
       if (error.code === "USER_CANCELED" || error.message?.includes("cancel")) {
