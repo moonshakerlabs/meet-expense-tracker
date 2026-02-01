@@ -274,6 +274,10 @@ const Index = () => {
           showUpcomingPayments={settings.showUpcomingPayments}
           showSpendingByCategory={settings.showSpendingByCategory}
           showMonthlySpending={settings.showMonthlySpending}
+          isFreemium={featureAccess.managePurposes}
+          onAddCategory={(label, icon) => {
+            addCustomCategory({ id: `custom_cat_${Date.now()}`, label, icon });
+          }}
         />
       )}
 
@@ -290,6 +294,23 @@ const Index = () => {
           purposes={featureAccess.assignPurposeToExpenses ? settings.purposes : []}
           canUseMultipleCurrencies={featureAccess.useMultipleCurrencies}
           onShowFreemiumGate={() => showGate("Multiple currencies")}
+          isFreemium={featureAccess.managePurposes}
+          onAddSubcategory={(categoryId, label, icon) => {
+            const newSubcategory = {
+              id: `custom_sub_${Date.now()}`,
+              label,
+              icon,
+            };
+            addCustomSubcategory(categoryId, newSubcategory);
+          }}
+          onAddPurpose={(label) => {
+            const newPurpose = {
+              id: `purpose_${Date.now()}`,
+              label,
+              createdAt: new Date(),
+            };
+            addPurpose(newPurpose);
+          }}
         />
       )}
 
@@ -365,6 +386,7 @@ const Index = () => {
           defaultCurrencySymbol={settings.currencySymbol}
           onBack={() => setCurrentView("dashboard")}
           onChangeMonth={setSelectedDate}
+          customSubcategories={settings.customSubcategories}
         />
       )}
 

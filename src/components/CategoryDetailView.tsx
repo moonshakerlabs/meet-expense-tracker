@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 import { format } from "date-fns";
+import { getSubcategoryLabel } from "@/lib/subcategoryUtils";
 
 interface CategoryDetailViewProps {
   category: Category;
@@ -20,6 +21,7 @@ interface CategoryDetailViewProps {
   defaultCurrencySymbol: string;
   onBack: () => void;
   onChangeMonth: (date: Date) => void;
+  customSubcategories?: Record<string, { id: string; label: string; icon?: string }[]>;
 }
 
 const CategoryDetailView = ({
@@ -30,9 +32,14 @@ const CategoryDetailView = ({
   defaultCurrencySymbol,
   onBack,
   onChangeMonth,
+  customSubcategories = {},
 }: CategoryDetailViewProps) => {
   const categoryInfo = CATEGORIES.find((c) => c.id === category);
   const subcategories = SUBCATEGORIES[category] || [];
+  const allSubcategories = [
+    ...subcategories,
+    ...(customSubcategories[category] || []).map((s) => ({ id: s.id, label: s.label })),
+  ];
 
   const month = selectedDate.getMonth();
   const year = selectedDate.getFullYear();
@@ -61,27 +68,51 @@ const CategoryDetailView = ({
     [expenses, category, month, year]
   );
 
-  const totalAmount = useMemo(
-    () => categoryExpenses.reduce((sum, e) => sum + e.amount, 0),
-    [categoryExpenses]
-  );
-
-  const subcategoryData = useMemo(() => {
-    const totals: Record<string, number> = {};
+  // Group totals by currency
+  const totalsByCurrency = useMemo(() => {
+    const totals: Record<string, { amount: number; symbol: string; count: number }> = {};
     categoryExpenses.forEach((e) => {
-      const subcat = e.subcategory || "uncategorized";
-      totals[subcat] = (totals[subcat] || 0) + e.amount;
+      const curr = e.currency || "USD";
+      const symbol = e.currencySymbol || defaultCurrencySymbol;
+      if (!totals[curr]) {
+        totals[curr] = { amount: 0, symbol, count: 0 };
+      }
+      totals[curr].amount += e.amount;
+      totals[curr].count += 1;
     });
-    return Object.entries(totals)
-      .map(([subcategory, value]) => ({
-        name:
-          subcategories.find((s) => s.id === subcategory)?.label ||
-          (subcategory === "uncategorized" ? "Uncategorized" : subcategory),
-        value,
-        subcategory,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [categoryExpenses, subcategories]);
+    return Object.entries(totals);
+  }, [categoryExpenses, defaultCurrencySymbol]);
+
+  // Subcategory data grouped by currency
+  const subcategoryDataByCurrency = useMemo(() => {
+    const result: Record<string, Record<string, number>> = {};
+    
+    categoryExpenses.forEach((e) => {
+      const curr = e.currency || "USD";
+      const subcat = e.subcategory || "uncategorized";
+      
+      if (!result[curr]) {
+        result[curr] = {};
+      }
+      result[curr][subcat] = (result[curr][subcat] || 0) + e.amount;
+    });
+    
+    // Convert to sorted arrays
+    return Object.entries(result).map(([currency, totals]) => ({
+      currency,
+      data: Object.entries(totals)
+        .map(([subcategory, value]) => {
+          // Resolve subcategory label properly
+          const label = getSubcategoryLabel(subcategory, category, customSubcategories);
+          return {
+            name: label || (subcategory === "uncategorized" ? "Uncategorized" : subcategory),
+            value,
+            subcategory,
+          };
+        })
+        .sort((a, b) => b.value - a.value),
+    }));
+  }, [categoryExpenses, customSubcategories, category]);
 
   const SUBCATEGORY_COLORS = [
     "hsl(210, 80%, 55%)",
@@ -141,7 +172,7 @@ const CategoryDetailView = ({
           </Button>
         </div>
 
-        {/* Total Card */}
+        {/* Total Card - Multi-currency support */}
         <Card
           className="p-6 rounded-3xl mb-6"
           style={{
@@ -152,65 +183,93 @@ const CategoryDetailView = ({
           <p className="text-sm text-muted-foreground mb-1">
             Total {categoryInfo?.label} Expenses
           </p>
-          <h2
-            className="font-display font-bold text-4xl"
-            style={{ color: CATEGORY_COLORS[category] }}
-          >
-            {formatCurrency(totalAmount)}
-          </h2>
+          {totalsByCurrency.length > 0 ? (
+            <div className="space-y-1">
+              {totalsByCurrency.map(([currency, data]) => (
+                <div key={currency} className="flex items-center justify-between">
+                  <h2
+                    className="font-display font-bold text-3xl"
+                    style={{ color: CATEGORY_COLORS[category] }}
+                  >
+                    {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </h2>
+                  {totalsByCurrency.length > 1 && (
+                    <span className="text-sm text-muted-foreground">{currency}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <h2
+              className="font-display font-bold text-4xl"
+              style={{ color: CATEGORY_COLORS[category] }}
+            >
+              {formatCurrency(0)}
+            </h2>
+          )}
           <p className="text-sm text-muted-foreground mt-2">
             {categoryExpenses.length} transactions
           </p>
         </Card>
 
-        {/* Subcategory Breakdown */}
-        {subcategoryData.length > 0 && subcategories.length > 0 && (
+        {/* Subcategory Breakdown - Multi-currency */}
+        {subcategoryDataByCurrency.length > 0 && allSubcategories.length > 0 && (
           <Card className="p-5 rounded-2xl mb-6">
             <h3 className="font-semibold mb-4">Breakdown by Subcategory</h3>
-            <div className="flex items-center gap-4">
-              <div className="w-24 h-24">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={subcategoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={25}
-                      outerRadius={40}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {subcategoryData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={SUBCATEGORY_COLORS[index % SUBCATEGORY_COLORS.length]}
-                        />
+            {subcategoryDataByCurrency.map(({ currency, data }) => {
+              const currencySymbol = totalsByCurrency.find(([c]) => c === currency)?.[1]?.symbol || "$";
+              return (
+                <div key={currency} className="mb-4 last:mb-0">
+                  {subcategoryDataByCurrency.length > 1 && (
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">{currency}</p>
+                  )}
+                  <div className="flex items-center gap-4">
+                    <div className="w-24 h-24">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={25}
+                            outerRadius={40}
+                            paddingAngle={2}
+                            dataKey="value"
+                          >
+                            {data.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={SUBCATEGORY_COLORS[index % SUBCATEGORY_COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: number) => `${currencySymbol}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {data.map((item, index) => (
+                        <div key={item.subcategory} className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                              backgroundColor:
+                                SUBCATEGORY_COLORS[index % SUBCATEGORY_COLORS.length],
+                            }}
+                          />
+                          <span className="text-sm flex-1">{item.name}</span>
+                          <span className="text-sm font-medium">
+                            {currencySymbol}{item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex-1 space-y-2">
-                {subcategoryData.map((item, index) => (
-                  <div key={item.subcategory} className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{
-                        backgroundColor:
-                          SUBCATEGORY_COLORS[index % SUBCATEGORY_COLORS.length],
-                      }}
-                    />
-                    <span className="text-sm flex-1">{item.name}</span>
-                    <span className="text-sm font-medium">
-                      {formatCurrency(item.value)}
-                    </span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              );
+            })}
           </Card>
         )}
 
@@ -225,10 +284,12 @@ const CategoryDetailView = ({
                     new Date(b.date).getTime() - new Date(a.date).getTime()
                 )
                 .map((expense) => {
-                  const subcategoryLabel = expense.subcategory
-                    ? subcategories.find((s) => s.id === expense.subcategory)
-                        ?.label
-                    : null;
+                  // Resolve subcategory label properly using utility
+                  const subcategoryLabel = getSubcategoryLabel(
+                    expense.subcategory,
+                    expense.category,
+                    customSubcategories
+                  );
                   const expenseSymbol = expense.currencySymbol || defaultCurrencySymbol;
                   return (
                     <Card key={expense.id} className="p-4 rounded-2xl">
@@ -254,9 +315,14 @@ const CategoryDetailView = ({
                             {format(new Date(expense.date), "MMM d, h:mm a")}
                           </p>
                         </div>
-                        <p className="font-semibold">
-                          -{expenseSymbol}{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
+                        <div className="text-right">
+                          <p className="font-semibold">
+                            -{expenseSymbol}{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          {totalsByCurrency.length > 1 && (
+                            <p className="text-xs text-muted-foreground">{expense.currency || "USD"}</p>
+                          )}
+                        </div>
                       </div>
                     </Card>
                   );
