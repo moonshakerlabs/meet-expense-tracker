@@ -36,6 +36,20 @@ const UpgradeScreen = ({
     restorePurchases,
   } = useGooglePlayBilling();
 
+  // Debug logging for billing states
+  console.log("[UpgradeScreen] Billing State:", {
+    isNativeAndroid,
+    billingAvailable,
+    billingLoading,
+    isPurchasing,
+    productPrice,
+    billingError,
+    isPaid,
+    isTrialActive,
+    trialUsed,
+    trialDaysRemaining,
+  });
+
   const handlePurchase = async () => {
     const success = await purchaseFreemium();
     if (success) {
