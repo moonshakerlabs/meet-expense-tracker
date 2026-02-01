@@ -44,38 +44,66 @@ export const useGooglePlayBilling = () => {
         return;
       }
 
+      // Add timeout to prevent hanging - 5 seconds max for billing init
+      const timeoutId = setTimeout(() => {
+        console.warn("[Billing] Initialization timeout - billing may not be available");
+        setState((prev) => {
+          if (prev.isLoading) {
+            return { ...prev, isLoading: false, isAvailable: false, error: null };
+          }
+          return prev;
+        });
+      }, 5000);
+
       try {
         const NativePurchases = await getPlugin();
         if (!NativePurchases) {
+          clearTimeout(timeoutId);
           setState((prev) => ({ ...prev, isLoading: false, isAvailable: false }));
           return;
         }
 
         // Check if billing is supported
-        const { isBillingSupported } = await NativePurchases.isBillingSupported();
+        let isBillingSupported = false;
+        try {
+          const result = await NativePurchases.isBillingSupported();
+          isBillingSupported = result?.isBillingSupported ?? false;
+        } catch (billingCheckError) {
+          console.warn("[Billing] isBillingSupported check failed:", billingCheckError);
+          isBillingSupported = false;
+        }
+
         if (!isBillingSupported) {
+          clearTimeout(timeoutId);
           setState((prev) => ({
             ...prev,
             isLoading: false,
             isAvailable: false,
-            error: "Billing not supported on this device",
+            error: null, // Don't show error for unsupported devices
           }));
           return;
         }
 
         // Get product information
-        const { products } = await NativePurchases.getProducts({
-          productIdentifiers: [FREEMIUM_PRODUCT_ID],
-          productType: "INAPP" as any, // One-time purchase
-        });
+        let productPrice: string | null = null;
+        try {
+          const { products } = await NativePurchases.getProducts({
+            productIdentifiers: [FREEMIUM_PRODUCT_ID],
+            productType: "INAPP" as any, // One-time purchase
+          });
 
-        const freemiumProduct = products.find(
-          (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID || p.identifier === FREEMIUM_PRODUCT_ID
-        );
+          const freemiumProduct = products.find(
+            (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID || p.identifier === FREEMIUM_PRODUCT_ID
+          );
 
-        const priceValue = freemiumProduct?.priceString || freemiumProduct?.price;
-        const productPrice = typeof priceValue === 'number' ? `$${priceValue}` : priceValue || null;
+          const priceValue = freemiumProduct?.priceString || freemiumProduct?.price;
+          productPrice = typeof priceValue === 'number' ? `$${priceValue}` : priceValue || null;
+        } catch (productError) {
+          console.warn("[Billing] Failed to get product info:", productError);
+          // Continue without price - billing may still work
+        }
 
+        clearTimeout(timeoutId);
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -83,12 +111,13 @@ export const useGooglePlayBilling = () => {
           productPrice,
         }));
       } catch (error) {
+        clearTimeout(timeoutId);
         console.error("Billing initialization error:", error);
         setState((prev) => ({
           ...prev,
           isLoading: false,
           isAvailable: false,
-          error: error instanceof Error ? error.message : "Failed to initialize billing",
+          error: null, // Don't show error to user for init failures
         }));
       }
     };
