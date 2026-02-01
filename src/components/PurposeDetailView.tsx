@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ChevronRight, Receipt, X } from "lucide-react";
-import { Expense, CATEGORIES, CATEGORY_COLORS, Category, Purpose, SUBCATEGORIES } from "@/types/expense";
+import { ArrowLeft, ChevronRight, Receipt } from "lucide-react";
+import { Expense, CATEGORIES, CATEGORY_COLORS, Category, Purpose } from "@/types/expense";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getCategoryMeta } from "@/lib/categoryUtils";
+import { getSubcategoryLabel } from "@/lib/subcategoryUtils";
 
 interface PurposeDetailViewProps {
   purpose: Purpose;
@@ -13,7 +14,7 @@ interface PurposeDetailViewProps {
   defaultCurrencySymbol: string;
   onBack: () => void;
   customCategories?: Array<{ id: string; label: string; icon: string; color?: string }>;
-  customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
+  customSubcategories?: Record<string, { id: string; label: string; icon?: string }[]>;
 }
 
 const MONTHS = [
@@ -32,18 +33,19 @@ const PurposeDetailView = ({
 }: PurposeDetailViewProps) => {
   // State for viewing expenses by category
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  
   // Filter expenses by purpose
   const purposeExpenses = useMemo(
     () => expenses.filter((e) => e.purposeId === purpose.id),
     [expenses, purpose.id]
   );
 
-  // Group by currency
+  // Group by currency - showing ALL currencies
   const totalsByCurrency = useMemo(() => {
     const totals: Record<string, { amount: number; symbol: string; count: number }> = {};
     purposeExpenses.forEach((expense) => {
       const curr = expense.currency || "USD";
-      const symbol = expense.currencySymbol || "$";
+      const symbol = expense.currencySymbol || defaultCurrencySymbol;
       if (!totals[curr]) {
         totals[curr] = { amount: 0, symbol, count: 0 };
       }
@@ -51,9 +53,9 @@ const PurposeDetailView = ({
       totals[curr].count += 1;
     });
     return Object.entries(totals);
-  }, [purposeExpenses]);
+  }, [purposeExpenses, defaultCurrencySymbol]);
 
-  // Monthly breakdown with currency-wise totals
+  // Monthly breakdown with currency-wise totals - ALL currencies
   const monthlyBreakdown = useMemo(() => {
     const breakdown: Record<string, { 
       month: number; 
@@ -66,7 +68,7 @@ const PurposeDetailView = ({
       const date = new Date(expense.date);
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       const curr = expense.currency || "USD";
-      const symbol = expense.currencySymbol || "$";
+      const symbol = expense.currencySymbol || defaultCurrencySymbol;
       
       if (!breakdown[key]) {
         breakdown[key] = { 
@@ -94,9 +96,9 @@ const PurposeDetailView = ({
         if (a.year !== b.year) return b.year - a.year;
         return b.month - a.month;
       });
-  }, [purposeExpenses]);
+  }, [purposeExpenses, defaultCurrencySymbol]);
 
-  // Category breakdown with currency-wise totals
+  // Category breakdown with currency-wise totals - ALL currencies
   const categoryBreakdown = useMemo(() => {
     const breakdown: Record<string, { 
       category: string; 
@@ -109,7 +111,7 @@ const PurposeDetailView = ({
     purposeExpenses.forEach((expense) => {
       const categoryId = expense.category;
       const curr = expense.currency || "USD";
-      const symbol = expense.currencySymbol || "$";
+      const symbol = expense.currencySymbol || defaultCurrencySymbol;
       
       if (!breakdown[categoryId]) {
         const builtIn = CATEGORIES.find((c) => c.id === categoryId);
@@ -139,7 +141,7 @@ const PurposeDetailView = ({
         totalForSort: Object.values(item.currencies).reduce((sum, c) => sum + c.amount, 0),
       }))
       .sort((a, b) => b.totalForSort - a.totalForSort);
-  }, [purposeExpenses, customCategories]);
+  }, [purposeExpenses, customCategories, defaultCurrencySymbol]);
 
   // Get expenses for the selected category
   const categoryExpenses = useMemo(() => {
@@ -174,21 +176,21 @@ const PurposeDetailView = ({
             </div>
           </div>
 
-          {/* Expenses List */}
+          {/* Expenses List - showing proper currency for each */}
           {categoryExpenses.length > 0 ? (
             <ScrollArea className="max-h-[calc(100vh-150px)]">
               <div className="space-y-3">
                 {categoryExpenses.map((expense) => {
                   const expenseDate = new Date(expense.date);
                   const expenseSymbol = expense.currencySymbol || defaultCurrencySymbol;
-                  // Get subcategory label
-                  const builtInSubLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
-                    ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label
-                    : null;
-                  const customSubLabel = expense.subcategory && customSubcategories[expense.category]
-                    ? customSubcategories[expense.category]?.find((s) => s.id === expense.subcategory)?.label
-                    : null;
-                  const subcategoryLabel = builtInSubLabel || customSubLabel;
+                  const expenseCurrency = expense.currency || "USD";
+                  
+                  // Get subcategory label using utility
+                  const subcategoryLabel = getSubcategoryLabel(
+                    expense.subcategory,
+                    expense.category,
+                    customSubcategories
+                  );
 
                   return (
                     <Card key={expense.id} className="p-4 rounded-2xl">
@@ -208,7 +210,7 @@ const PurposeDetailView = ({
                         </div>
                         <div className="text-right shrink-0">
                           <p className="font-semibold text-lg">-{expenseSymbol}{expense.amount.toFixed(2)}</p>
-                          <p className="text-xs text-muted-foreground">{expense.currency || "USD"}</p>
+                          <p className="text-xs text-muted-foreground">{expenseCurrency}</p>
                         </div>
                       </div>
                     </Card>
@@ -244,7 +246,7 @@ const PurposeDetailView = ({
           </div>
         </div>
 
-        {/* Totals */}
+        {/* Totals - ALL currencies */}
         {totalsByCurrency.length > 0 ? (
           <Card className="p-5 bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-2xl mb-4">
             <p className="text-sm text-muted-foreground mb-2">Total Spent</p>
@@ -254,7 +256,12 @@ const PurposeDetailView = ({
                   <h2 className="font-display font-bold text-3xl">
                     {data.symbol}{data.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </h2>
-                  <span className="text-sm text-muted-foreground">{data.count} txn</span>
+                  <div className="text-right">
+                    <span className="text-sm text-muted-foreground">{data.count} txn</span>
+                    {totalsByCurrency.length > 1 && (
+                      <span className="text-xs text-muted-foreground ml-2">({currency})</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -271,7 +278,7 @@ const PurposeDetailView = ({
           </Card>
         )}
 
-        {/* Monthly Breakdown - Currency-wise */}
+        {/* Monthly Breakdown - Currency-wise - ALL currencies */}
         {monthlyBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl mb-4">
             <h3 className="font-semibold mb-4">Monthly Breakdown</h3>
@@ -291,7 +298,7 @@ const PurposeDetailView = ({
                         <p className="text-xs text-muted-foreground">{item.count} expenses</p>
                       </div>
                     </div>
-                    {/* Currency breakdown for this month */}
+                    {/* Currency breakdown for this month - ALL currencies */}
                     <div className="ml-13 pl-13 space-y-1">
                       {item.currencyTotals.map(([currency, data]) => (
                         <div key={currency} className="flex items-center justify-between text-sm">
@@ -309,7 +316,7 @@ const PurposeDetailView = ({
           </Card>
         )}
 
-        {/* Category Breakdown - Currency-wise - Clickable */}
+        {/* Category Breakdown - Currency-wise - ALL currencies - Clickable */}
         {categoryBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl">
             <h3 className="font-semibold mb-4">Category Breakdown</h3>
@@ -336,7 +343,7 @@ const PurposeDetailView = ({
                       </div>
                       <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
-                    {/* Currency breakdown for this category */}
+                    {/* Currency breakdown for this category - ALL currencies */}
                     <div className="ml-13 pl-13 space-y-1">
                       {item.currencyTotals.map(([currency, data]) => (
                         <div key={currency} className="flex items-center justify-between text-sm">

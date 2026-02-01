@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu, Clock } from "lucide-react";
 import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencySavings, RecurringExpense } from "@/types/expense";
 import {
@@ -10,6 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   PieChart,
   Pie,
@@ -25,6 +32,7 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel";
 import { startOfDay, format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
 
 interface DashboardProps {
   expenses: Expense[];
@@ -64,6 +72,9 @@ interface DashboardProps {
   showUpcomingPayments?: boolean;
   showSpendingByCategory?: boolean;
   showMonthlySpending?: boolean;
+  // Freemium inline add
+  isFreemium?: boolean;
+  onAddCategory?: (label: string, icon: string) => void;
 }
 
 const MONTHS = [
@@ -94,11 +105,27 @@ const Dashboard = ({
   showUpcomingPayments = true,
   showSpendingByCategory = true,
   showMonthlySpending = true,
+  isFreemium = false,
+  onAddCategory,
 }: DashboardProps) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "yearly" | "purpose">("monthly");
   const [expandedCurrencies, setExpandedCurrencies] = useState<Record<string, boolean>>({});
   const [expandedMonths, setExpandedMonths] = useState(false);
+  
+  // Inline add category dialog state
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryIcon, setNewCategoryIcon] = useState("📁");
+  
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim() || !onAddCategory) return;
+    onAddCategory(newCategoryName.trim(), newCategoryIcon);
+    toast({ title: "Category added", description: `"${newCategoryName.trim()}" has been created` });
+    setNewCategoryName("");
+    setNewCategoryIcon("📁");
+    setShowAddCategoryDialog(false);
+  };
   
   const month = selectedDate.getMonth();
   const year = selectedDate.getFullYear();
@@ -751,7 +778,19 @@ const Dashboard = ({
         {/* Category Breakdown - Expandable (toggleable) */}
         {showSpendingByCategory && categoryDataByCurrency.length > 0 && (
           <Card className="p-5 rounded-2xl mb-6">
-            <h3 className="font-semibold mb-4">Spending by Category</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Spending by Category</h3>
+              {isFreemium && onAddCategory && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 rounded-lg"
+                  onClick={() => setShowAddCategoryDialog(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
             
             <Carousel className="w-full">
               <CarouselContent>
@@ -941,6 +980,48 @@ const Dashboard = ({
       >
         <Plus className="w-6 h-6" />
       </Button>
+
+      {/* Add Category Dialog (Freemium only) */}
+      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+        <DialogContent className="max-w-[90%] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">Add Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Category Name
+              </label>
+              <Input
+                placeholder="e.g., Groceries"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="rounded-xl"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Icon (emoji)
+              </label>
+              <Input
+                placeholder="📁"
+                value={newCategoryIcon}
+                onChange={(e) => setNewCategoryIcon(e.target.value)}
+                className="rounded-xl"
+                maxLength={2}
+              />
+            </div>
+            <Button
+              className="w-full rounded-xl h-12 font-semibold"
+              onClick={handleAddCategory}
+              disabled={!newCategoryName.trim()}
+            >
+              Add Category
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
