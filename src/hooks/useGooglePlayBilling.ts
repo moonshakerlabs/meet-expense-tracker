@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 
 // Product ID for the one-time Freemium purchase
 // This must match the product ID you created in Google Play Console
-export const FREEMIUM_PRODUCT_ID = "freemium_lifetime";
+export const FREEMIUM_PRODUCT_ID = "meet_freemium";
 
 interface PurchaseState {
   isAvailable: boolean;
@@ -11,6 +11,12 @@ interface PurchaseState {
   isPurchasing: boolean;
   productPrice: string | null;
   error: string | null;
+}
+
+export interface PurchaseResult {
+  success: boolean;
+  cancelled?: boolean;
+  error?: string;
 }
 
 export const useGooglePlayBilling = () => {
@@ -149,15 +155,13 @@ export const useGooglePlayBilling = () => {
   }, [isNativeAndroid, getPlugin]);
 
   // Purchase Freemium upgrade
-  const purchaseFreemium = useCallback(async (): Promise<boolean> => {
+  const purchaseFreemium = useCallback(async (): Promise<PurchaseResult> => {
     console.log("[Billing] purchaseFreemium called, isNativeAndroid:", isNativeAndroid);
     
     if (!isNativeAndroid) {
-      setState((prev) => ({
-        ...prev,
-        error: "Google Play Billing is only available on Android devices",
-      }));
-      return false;
+      const error = "Google Play Billing is only available on Android devices";
+      setState((prev) => ({ ...prev, error }));
+      return { success: false, error };
     }
 
     setState((prev) => ({ ...prev, isPurchasing: true, error: null }));
@@ -185,7 +189,7 @@ export const useGooglePlayBilling = () => {
             purchaseError?.message?.toLowerCase().includes("cancel") ||
             purchaseError?.message?.toLowerCase().includes("user cancelled")) {
           setState((prev) => ({ ...prev, isPurchasing: false, error: null }));
-          return false;
+          return { success: false, cancelled: true };
         }
         throw purchaseError;
       }
@@ -205,15 +209,12 @@ export const useGooglePlayBilling = () => {
       if (isPurchased) {
         console.log("[Billing] Purchase successful!");
         setState((prev) => ({ ...prev, isPurchasing: false }));
-        return true;
+        return { success: true };
       } else {
         console.log("[Billing] Purchase not completed, state:", purchaseState);
-        setState((prev) => ({
-          ...prev,
-          isPurchasing: false,
-          error: "Purchase was not completed",
-        }));
-        return false;
+        const error = "Purchase was not completed";
+        setState((prev) => ({ ...prev, isPurchasing: false, error }));
+        return { success: false, error };
       }
     } catch (error: any) {
       console.error("[Billing] Purchase error:", error);
@@ -222,15 +223,12 @@ export const useGooglePlayBilling = () => {
       // Handle user cancellation gracefully
       if (error.code === "USER_CANCELED" || error.message?.includes("cancel")) {
         setState((prev) => ({ ...prev, isPurchasing: false, error: null }));
-        return false;
+        return { success: false, cancelled: true };
       }
 
-      setState((prev) => ({
-        ...prev,
-        isPurchasing: false,
-        error: error.message || "Purchase failed",
-      }));
-      return false;
+      const errorMsg = error.message || "Purchase failed";
+      setState((prev) => ({ ...prev, isPurchasing: false, error: errorMsg }));
+      return { success: false, error: errorMsg };
     }
   }, [isNativeAndroid, getPlugin]);
 

@@ -51,15 +51,16 @@ const UpgradeScreen = ({
   });
 
   const handlePurchase = async () => {
-    const success = await purchaseFreemium();
-    if (success) {
+    const result = await purchaseFreemium();
+    if (result.success) {
       onUpgradeToPaid();
       toast.success("Welcome to Freemium!", {
         description: "All premium features are now unlocked.",
       });
-    } else if (billingError) {
-      toast.error("Purchase failed", {
-        description: billingError,
+    } else if (!result.cancelled) {
+      // Only show error if it wasn't a user cancellation
+      toast.error("Purchase not completed", {
+        description: result.error || "Please try again or check your Google Play account.",
       });
     }
   };
