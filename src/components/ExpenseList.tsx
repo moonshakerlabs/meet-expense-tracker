@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, ChevronDown } from "lucide-react";
 import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
-import { format } from "date-fns";
+import { format, isToday, isYesterday, isSameMonth, isSameYear, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -316,6 +316,74 @@ const [searchQuery, setSearchQuery] = useState("");
 
   const monthLabel = new Date(contextYear, contextMonth).toLocaleString("default", { month: "long", year: "numeric" });
 
+  // Group expenses by date when "All" filter is selected
+  const groupedExpenses = useMemo(() => {
+    if (filter !== "all" || sort !== "newest") {
+      return null; // Don't group for other filters or sort orders
+    }
+
+    const now = new Date();
+    const groups: { label: string; key: string; expenses: typeof filteredAndSortedExpenses }[] = [];
+    const todayExpenses: Expense[] = [];
+    const yesterdayExpenses: Expense[] = [];
+    const thisMonthByDate: Record<string, Expense[]> = {};
+    const previousMonths: Record<string, Expense[]> = {};
+
+    filteredAndSortedExpenses.forEach((expense) => {
+      const expenseDate = new Date(expense.date);
+      
+      if (isToday(expenseDate)) {
+        todayExpenses.push(expense);
+      } else if (isYesterday(expenseDate)) {
+        yesterdayExpenses.push(expense);
+      } else if (isSameMonth(expenseDate, now) && isSameYear(expenseDate, now)) {
+        // Same month as today - group by date
+        const dateKey = format(expenseDate, "yyyy-MM-dd");
+        if (!thisMonthByDate[dateKey]) {
+          thisMonthByDate[dateKey] = [];
+        }
+        thisMonthByDate[dateKey].push(expense);
+      } else {
+        // Previous months - group by month name
+        const monthKey = format(expenseDate, "MMMM yyyy");
+        if (!previousMonths[monthKey]) {
+          previousMonths[monthKey] = [];
+        }
+        previousMonths[monthKey].push(expense);
+      }
+    });
+
+    // Add Today group
+    if (todayExpenses.length > 0) {
+      groups.push({ label: "Today", key: "today", expenses: todayExpenses });
+    }
+
+    // Add Yesterday group
+    if (yesterdayExpenses.length > 0) {
+      groups.push({ label: "Yesterday", key: "yesterday", expenses: yesterdayExpenses });
+    }
+
+    // Add this month's dates (sorted by date descending)
+    const sortedDateKeys = Object.keys(thisMonthByDate).sort((a, b) => b.localeCompare(a));
+    sortedDateKeys.forEach((dateKey) => {
+      const date = new Date(dateKey);
+      const label = format(date, "EEEE, MMMM d");
+      groups.push({ label, key: dateKey, expenses: thisMonthByDate[dateKey] });
+    });
+
+    // Add previous months (sorted by date descending)
+    const sortedMonthKeys = Object.keys(previousMonths).sort((a, b) => {
+      const dateA = new Date(previousMonths[a][0].date);
+      const dateB = new Date(previousMonths[b][0].date);
+      return dateB.getTime() - dateA.getTime();
+    });
+    sortedMonthKeys.forEach((monthKey) => {
+      groups.push({ label: monthKey, key: monthKey, expenses: previousMonths[monthKey] });
+    });
+
+    return groups;
+  }, [filteredAndSortedExpenses, filter, sort]);
+
   return (
     <div className="min-h-screen bg-background pb-8 safe-top">
       <div className="px-5 pt-6 pb-4">
@@ -460,44 +528,92 @@ const [searchQuery, setSearchQuery] = useState("");
         </div>
 
         {filteredAndSortedExpenses.length > 0 ? (
-          <div className="space-y-3">
-            {filteredAndSortedExpenses.map((expense, index) => {
-              const categoryMeta = getCategoryMeta(expense.category, customCategories);
-              // Check both built-in and custom subcategories
-              const builtInSubLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
-                ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label 
-                : null;
-              const customSubLabel = expense.subcategory && customSubcategories[expense.category]
-                ? customSubcategories[expense.category]?.find((s) => s.id === expense.subcategory)?.label
-                : null;
-              const subcategoryLabel = builtInSubLabel || customSubLabel;
-              const expenseDate = new Date(expense.date);
-              const expenseSymbol = expense.currencySymbol || currencySymbol;
-              
-              return (
-                <Card key={expense.id} className="p-4 rounded-2xl animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: `${categoryMeta.color}20` }}>
-                      {categoryMeta.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{categoryMeta.label}</p>
-                      {subcategoryLabel && <p className="text-xs text-muted-foreground truncate">{subcategoryLabel}</p>}
-                      {expense.notes && <p className="text-sm text-muted-foreground truncate">{expense.notes}</p>}
-                      <p className="text-xs text-muted-foreground">{expenseDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <p className="font-semibold text-lg">-{expenseSymbol}{expense.amount.toFixed(2)}</p>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => openEditModal(expense)}><Pencil className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeletingExpense(expense)}><Trash2 className="w-4 h-4" /></Button>
+          groupedExpenses ? (
+            // Grouped view for "All" filter with newest sort
+            <div className="space-y-4">
+              {groupedExpenses.map((group) => (
+                <div key={group.key}>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">{group.label}</h3>
+                  <div className="space-y-3">
+                    {group.expenses.map((expense, index) => {
+                      const categoryMeta = getCategoryMeta(expense.category, customCategories);
+                      const builtInSubLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
+                        ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label 
+                        : null;
+                      const customSubLabel = expense.subcategory && customSubcategories[expense.category]
+                        ? customSubcategories[expense.category]?.find((s) => s.id === expense.subcategory)?.label
+                        : null;
+                      const subcategoryLabel = builtInSubLabel || customSubLabel;
+                      const expenseDate = new Date(expense.date);
+                      const expenseSymbol = expense.currencySymbol || currencySymbol;
+                      
+                      return (
+                        <Card key={expense.id} className="p-4 rounded-2xl animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: `${categoryMeta.color}20` }}>
+                              {categoryMeta.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{categoryMeta.label}</p>
+                              {subcategoryLabel && <p className="text-xs text-muted-foreground truncate">{subcategoryLabel}</p>}
+                              {expense.notes && <p className="text-sm text-muted-foreground truncate">{expense.notes}</p>}
+                              <p className="text-xs text-muted-foreground">{format(expenseDate, "h:mm a")}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <p className="font-semibold text-lg">-{expenseSymbol}{expense.amount.toFixed(2)}</p>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => openEditModal(expense)}><Pencil className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeletingExpense(expense)}><Trash2 className="w-4 h-4" /></Button>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Regular flat list for other filters
+            <div className="space-y-3">
+              {filteredAndSortedExpenses.map((expense, index) => {
+                const categoryMeta = getCategoryMeta(expense.category, customCategories);
+                const builtInSubLabel = expense.subcategory && SUBCATEGORIES[expense.category as Category]
+                  ? SUBCATEGORIES[expense.category as Category]?.find((s) => s.id === expense.subcategory)?.label 
+                  : null;
+                const customSubLabel = expense.subcategory && customSubcategories[expense.category]
+                  ? customSubcategories[expense.category]?.find((s) => s.id === expense.subcategory)?.label
+                  : null;
+                const subcategoryLabel = builtInSubLabel || customSubLabel;
+                const expenseDate = new Date(expense.date);
+                const expenseSymbol = expense.currencySymbol || currencySymbol;
+                
+                return (
+                  <Card key={expense.id} className="p-4 rounded-2xl animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: `${categoryMeta.color}20` }}>
+                        {categoryMeta.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{categoryMeta.label}</p>
+                        {subcategoryLabel && <p className="text-xs text-muted-foreground truncate">{subcategoryLabel}</p>}
+                        {expense.notes && <p className="text-sm text-muted-foreground truncate">{expense.notes}</p>}
+                        <p className="text-xs text-muted-foreground">{expenseDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <p className="font-semibold text-lg">-{expenseSymbol}{expense.amount.toFixed(2)}</p>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => openEditModal(expense)}><Pencil className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeletingExpense(expense)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )
         ) : (
           <Card className="p-8 rounded-2xl text-center">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4"><Receipt className="w-8 h-8 text-muted-foreground" /></div>
