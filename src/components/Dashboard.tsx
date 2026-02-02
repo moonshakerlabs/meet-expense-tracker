@@ -349,10 +349,12 @@ const Dashboard = ({
     return result;
   }, [currencySavings, totalIncomeByCurrency, expensesByCurrency]);
 
-  // Upcoming payments: recurring expenses that are due
+  // Upcoming payments: recurring expenses due this month only
   const upcomingPayments = useMemo(() => {
     if (!recurringExpenses) return [];
-    const today = startOfDay(new Date());
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     
     return recurringExpenses
       .filter((r) => r.isActive)
@@ -360,8 +362,12 @@ const Dashboard = ({
         ...r,
         nextDueDate: new Date(r.nextDueDate),
       }))
-      .sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime())
-      .slice(0, 5); // Show max 5 upcoming
+      .filter((r) => {
+        // Only show payments due in the current month
+        return r.nextDueDate.getMonth() === currentMonth && 
+               r.nextDueDate.getFullYear() === currentYear;
+      })
+      .sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
   }, [recurringExpenses]);
 
   // Track which recurring expenses have been processed to prevent duplicates

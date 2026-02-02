@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 
 interface UpdateState {
@@ -9,7 +9,11 @@ interface UpdateState {
   isUpdating: boolean;
   flexibleUpdateAllowed: boolean;
   immediateUpdateAllowed: boolean;
+  lastChecked: number | null;
 }
+
+const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour minimum between checks
+const UPDATE_CHECK_TIMEOUT = 15000; // 15 seconds timeout
 
 export const useAppUpdate = () => {
   const [state, setState] = useState<UpdateState>({
@@ -20,7 +24,10 @@ export const useAppUpdate = () => {
     isUpdating: false,
     flexibleUpdateAllowed: false,
     immediateUpdateAllowed: false,
+    lastChecked: null,
   });
+  
+  const hasCheckedRef = useRef(false);
 
   const isNativeAndroid = Capacitor.getPlatform() === "android";
 
@@ -36,25 +43,42 @@ export const useAppUpdate = () => {
     }
   }, [isNativeAndroid]);
 
-  // Check for updates with timeout
-  const checkForUpdate = useCallback(async (timeoutMs: number = 10000) => {
+  // Check for updates with timeout and throttling
+  const checkForUpdate = useCallback(async (force: boolean = false) => {
     if (!isNativeAndroid) {
       console.log("[AppUpdate] Not on Android, skipping update check");
       return false;
     }
+    
+    // Prevent concurrent checks
+    if (state.isChecking) {
+      console.log("[AppUpdate] Already checking, skipping");
+      return false;
+    }
+    
+    // Throttle checks unless forced
+    if (!force && state.lastChecked) {
+      const timeSinceLastCheck = Date.now() - state.lastChecked;
+      if (timeSinceLastCheck < UPDATE_CHECK_INTERVAL) {
+        console.log("[AppUpdate] Recently checked, skipping. Time since last:", timeSinceLastCheck);
+        return state.updateAvailable;
+      }
+    }
 
+    console.log("[AppUpdate] Starting update check...");
     setState((prev) => ({ ...prev, isChecking: true }));
 
     try {
       const AppUpdate = await getPlugin();
       if (!AppUpdate) {
-        setState((prev) => ({ ...prev, isChecking: false }));
+        console.log("[AppUpdate] Plugin not available");
+        setState((prev) => ({ ...prev, isChecking: false, lastChecked: Date.now() }));
         return false;
       }
 
       // Create a timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Update check timed out")), timeoutMs);
+        setTimeout(() => reject(new Error("Update check timed out")), UPDATE_CHECK_TIMEOUT);
       });
 
       // Race between the actual check and the timeout
@@ -63,11 +87,17 @@ export const useAppUpdate = () => {
         timeoutPromise,
       ]);
 
-      console.log("[AppUpdate] Update info:", JSON.stringify(result));
-
-      const updateAvailable = result.updateAvailability === 2; // UPDATE_AVAILABLE
+      console.log("[AppUpdate] Update info received:", JSON.stringify(result));
+      
+      // updateAvailability: 1 = NOT_AVAILABLE, 2 = UPDATE_AVAILABLE, 3 = UPDATE_IN_PROGRESS
+      const updateAvailable = result.updateAvailability === 2;
       const flexibleUpdateAllowed = result.flexibleUpdateAllowed || false;
       const immediateUpdateAllowed = result.immediateUpdateAllowed || false;
+
+      console.log("[AppUpdate] Update available:", updateAvailable, 
+        "| Availability code:", result.updateAvailability,
+        "| Current:", result.currentVersionCode,
+        "| Available:", result.availableVersionCode);
 
       setState({
         updateAvailable,
@@ -77,15 +107,16 @@ export const useAppUpdate = () => {
         isUpdating: false,
         flexibleUpdateAllowed,
         immediateUpdateAllowed,
+        lastChecked: Date.now(),
       });
 
       return updateAvailable;
     } catch (error) {
       console.error("[AppUpdate] Error checking for updates:", error);
-      setState((prev) => ({ ...prev, isChecking: false }));
+      setState((prev) => ({ ...prev, isChecking: false, lastChecked: Date.now() }));
       return false;
     }
-  }, [isNativeAndroid, getPlugin]);
+  }, [isNativeAndroid, getPlugin, state.isChecking, state.lastChecked, state.updateAvailable]);
 
   // Start flexible update (downloads in background)
   const startFlexibleUpdate = useCallback(async () => {
@@ -162,16 +193,18 @@ export const useAppUpdate = () => {
     }
   }, [isNativeAndroid, getPlugin]);
 
-  // Check for updates on mount
+  // Check for updates on mount (only once)
   useEffect(() => {
-    if (isNativeAndroid) {
+    if (isNativeAndroid && !hasCheckedRef.current) {
+      hasCheckedRef.current = true;
       // Small delay to let the app initialize
       const timer = setTimeout(() => {
-        checkForUpdate();
-      }, 2000);
+        console.log("[AppUpdate] Initial update check on mount");
+        checkForUpdate(true); // Force check on first mount
+      }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isNativeAndroid, checkForUpdate]);
+  }, [isNativeAndroid]);
 
   return {
     ...state,

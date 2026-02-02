@@ -316,18 +316,24 @@ const [searchQuery, setSearchQuery] = useState("");
 
   const monthLabel = new Date(contextYear, contextMonth).toLocaleString("default", { month: "long", year: "numeric" });
 
-  // Group expenses by date when "All" filter is selected
+  // Group expenses by date for All, Week, Month filters
   const groupedExpenses = useMemo(() => {
-    if (filter !== "all" || sort !== "newest") {
-      return null; // Don't group for other filters or sort orders
+    // Only group when sort is "newest"
+    if (sort !== "newest") {
+      return null;
+    }
+    
+    // Only group for all, week, month filters
+    if (filter === "today") {
+      return null; // Today doesn't need grouping
     }
 
     const now = new Date();
     const groups: { label: string; key: string; expenses: typeof filteredAndSortedExpenses }[] = [];
     const todayExpenses: Expense[] = [];
     const yesterdayExpenses: Expense[] = [];
-    const thisMonthByDate: Record<string, Expense[]> = {};
-    const previousMonths: Record<string, Expense[]> = {};
+    const byDate: Record<string, Expense[]> = {};
+    const byMonth: Record<string, Expense[]> = {};
 
     filteredAndSortedExpenses.forEach((expense) => {
       const expenseDate = new Date(expense.date);
@@ -339,17 +345,17 @@ const [searchQuery, setSearchQuery] = useState("");
       } else if (isSameMonth(expenseDate, now) && isSameYear(expenseDate, now)) {
         // Same month as today - group by date
         const dateKey = format(expenseDate, "yyyy-MM-dd");
-        if (!thisMonthByDate[dateKey]) {
-          thisMonthByDate[dateKey] = [];
+        if (!byDate[dateKey]) {
+          byDate[dateKey] = [];
         }
-        thisMonthByDate[dateKey].push(expense);
+        byDate[dateKey].push(expense);
       } else {
         // Previous months - group by month name
         const monthKey = format(expenseDate, "MMMM yyyy");
-        if (!previousMonths[monthKey]) {
-          previousMonths[monthKey] = [];
+        if (!byMonth[monthKey]) {
+          byMonth[monthKey] = [];
         }
-        previousMonths[monthKey].push(expense);
+        byMonth[monthKey].push(expense);
       }
     });
 
@@ -364,24 +370,24 @@ const [searchQuery, setSearchQuery] = useState("");
     }
 
     // Add this month's dates (sorted by date descending)
-    const sortedDateKeys = Object.keys(thisMonthByDate).sort((a, b) => b.localeCompare(a));
+    const sortedDateKeys = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
     sortedDateKeys.forEach((dateKey) => {
       const date = new Date(dateKey);
       const label = format(date, "EEEE, MMMM d");
-      groups.push({ label, key: dateKey, expenses: thisMonthByDate[dateKey] });
+      groups.push({ label, key: dateKey, expenses: byDate[dateKey] });
     });
 
     // Add previous months (sorted by date descending)
-    const sortedMonthKeys = Object.keys(previousMonths).sort((a, b) => {
-      const dateA = new Date(previousMonths[a][0].date);
-      const dateB = new Date(previousMonths[b][0].date);
+    const sortedMonthKeys = Object.keys(byMonth).sort((a, b) => {
+      const dateA = new Date(byMonth[a][0].date);
+      const dateB = new Date(byMonth[b][0].date);
       return dateB.getTime() - dateA.getTime();
     });
     sortedMonthKeys.forEach((monthKey) => {
-      groups.push({ label: monthKey, key: monthKey, expenses: previousMonths[monthKey] });
+      groups.push({ label: monthKey, key: monthKey, expenses: byMonth[monthKey] });
     });
 
-    return groups;
+    return groups.length > 0 ? groups : null;
   }, [filteredAndSortedExpenses, filter, sort]);
 
   return (
