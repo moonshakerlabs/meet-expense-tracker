@@ -320,6 +320,8 @@ const Index = () => {
           onUpdateSettings={updateSettings}
           onBack={() => setCurrentView("dashboard")}
           expenses={expenses}
+          recurringExpenses={recurringExpenses}
+          incomes={incomes}
           onEnablePin={enablePin}
           onDisablePin={disablePin}
           onChangePin={handleChangePin}
@@ -329,6 +331,34 @@ const Index = () => {
           onViewUpgrade={() => setCurrentView("upgrade")}
           subscriptionTier={subscriptionTier}
           trialDaysRemaining={getTrialDaysRemaining()}
+          onImportRecurringExpenses={(imported) => {
+            imported.forEach((exp) => {
+              addRecurringExpense({
+                name: exp.name,
+                amount: exp.amount,
+                category: exp.category as Category,
+                subcategory: exp.subcategory,
+                frequencyValue: exp.frequencyValue,
+                frequencyUnit: exp.frequencyUnit,
+                startDate: exp.startDate,
+              });
+            });
+          }}
+          onImportRecurringIncomes={(imported) => {
+            imported.forEach((income) => {
+              addIncome({
+                amount: income.amount,
+                source: income.source,
+                date: income.date,
+                notes: income.notes,
+                isRecurring: income.isRecurring,
+                recurringDay: income.recurringDay,
+                autoUpdateMonths: income.autoUpdateMonths,
+                autoUpdateEndDate: income.autoUpdateEndDate,
+                isActive: income.isActive,
+              });
+            });
+          }}
         />
       )}
 
