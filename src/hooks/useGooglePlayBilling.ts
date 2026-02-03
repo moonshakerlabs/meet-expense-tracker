@@ -50,7 +50,7 @@ export const useGooglePlayBilling = () => {
         return;
       }
 
-      // Add timeout to prevent hanging - 5 seconds max for billing init
+      // Add timeout to prevent hanging - 10 seconds max for billing init
       const timeoutId = setTimeout(() => {
         console.warn("[Billing] Initialization timeout - billing may not be available");
         setState((prev) => {
@@ -59,7 +59,7 @@ export const useGooglePlayBilling = () => {
           }
           return prev;
         });
-      }, 5000);
+      }, 10000);
 
       try {
         const NativePurchases = await getPlugin();
@@ -95,7 +95,7 @@ export const useGooglePlayBilling = () => {
         try {
           const { products } = await NativePurchases.getProducts({
             productIdentifiers: [FREEMIUM_PRODUCT_ID],
-            productType: "INAPP" as any, // One-time purchase
+            productType: "inapp", // One-time purchase (must be lowercase)
           });
 
           const freemiumProduct = products.find(
@@ -187,12 +187,12 @@ export const useGooglePlayBilling = () => {
       console.log("[Billing] Starting purchase for product:", FREEMIUM_PRODUCT_ID);
       
       // First verify the product exists
-      try {
+        try {
         console.log("[Billing] Checking if product exists...");
         const { products } = await Promise.race([
           NativePurchases.getProducts({
             productIdentifiers: [FREEMIUM_PRODUCT_ID],
-            productType: "INAPP" as any,
+            productType: "inapp",
           }),
           createTimeout(10000, "Failed to fetch product info")
         ]);
@@ -218,7 +218,7 @@ export const useGooglePlayBilling = () => {
         transaction = await Promise.race([
           NativePurchases.purchaseProduct({
             productIdentifier: FREEMIUM_PRODUCT_ID,
-            productType: "INAPP" as any,
+            productType: "inapp",
           }),
           createTimeout(60000, "Purchase timeout - please try again")
         ]);
