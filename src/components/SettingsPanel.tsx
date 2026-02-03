@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { UserSettings, Expense } from "@/types/expense";
-import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw, Crown, Clock, Download, RefreshCw } from "lucide-react";
+import { UserSettings, Expense, RecurringExpense, Income } from "@/types/expense";
+import { ArrowLeft, Check, Sun, Moon, Smartphone, ChevronRight, Lock, Key, Shield, BookOpen, User, RotateCcw, Crown, Clock, Download, RefreshCw, Upload, FolderDown, FolderUp } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -19,17 +19,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { SubscriptionTier } from "@/types/subscription";
 import { useAppUpdate } from "@/hooks/useAppUpdate";
+import { exportConfiguration, parseConfigurationImport, deduplicateConfig, countConfigItems, AppConfiguration } from "@/lib/configExport";
 
 interface SettingsPanelProps {
   settings: UserSettings;
   onUpdateSettings: (updates: Partial<UserSettings>) => void;
   onBack: () => void;
   expenses: Expense[];
+  recurringExpenses: RecurringExpense[];
+  incomes: Income[];
   onEnablePin?: (hashedPin: string) => void;
   onDisablePin?: () => void;
   onChangePin?: () => void;
@@ -39,6 +42,8 @@ interface SettingsPanelProps {
   onViewUpgrade?: () => void;
   subscriptionTier?: SubscriptionTier;
   trialDaysRemaining?: number;
+  onImportRecurringExpenses?: (expenses: RecurringExpense[]) => void;
+  onImportRecurringIncomes?: (incomes: Income[]) => void;
 }
 
 const SettingsPanel = ({ 
@@ -46,6 +51,8 @@ const SettingsPanel = ({
   onUpdateSettings, 
   onBack, 
   expenses, 
+  recurringExpenses,
+  incomes,
   onEnablePin, 
   onDisablePin, 
   onChangePin, 
@@ -55,11 +62,16 @@ const SettingsPanel = ({
   onViewUpgrade,
   subscriptionTier = "free",
   trialDaysRemaining = 0,
+  onImportRecurringExpenses,
+  onImportRecurringIncomes,
 }: SettingsPanelProps) => {
   const [showThemeSheet, setShowThemeSheet] = useState(false);
   const [showNameSheet, setShowNameSheet] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [pendingConfig, setPendingConfig] = useState<AppConfiguration | null>(null);
   const [newName, setNewName] = useState(settings.userName || "");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     updateAvailable,
@@ -123,6 +135,107 @@ const SettingsPanel = ({
     onResetApp?.();
     setShowResetDialog(false);
     toast.success("App has been reset");
+  };
+
+  // Export configuration handler
+  const handleExportConfig = async () => {
+    try {
+      const success = await exportConfiguration(settings, recurringExpenses, incomes);
+      if (success) {
+        toast.success("Configuration exported", {
+          description: "Your app configuration has been saved.",
+        });
+      }
+    } catch (error) {
+      toast.error("Export failed", {
+        description: "Could not export configuration.",
+      });
+    }
+  };
+
+  // Import configuration handler
+  const handleImportConfig = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const { config, errors } = parseConfigurationImport(content);
+
+      if (!config) {
+        toast.error("Invalid configuration file", {
+          description: errors.join(", "),
+        });
+        return;
+      }
+
+      // Deduplicate against existing data
+      const deduplicatedConfig = deduplicateConfig(
+        config,
+        settings,
+        recurringExpenses,
+        incomes
+      );
+
+      const counts = countConfigItems(deduplicatedConfig);
+      const totalItems = Object.values(counts).reduce((a, b) => a + b, 0);
+
+      if (totalItems === 0) {
+        toast.info("Nothing new to import", {
+          description: "All items already exist in your app.",
+        });
+        return;
+      }
+
+      setPendingConfig(deduplicatedConfig);
+      setShowImportConfirm(true);
+    };
+
+    reader.onerror = () => {
+      toast.error("Failed to read file");
+    };
+
+    reader.readAsText(file);
+    // Reset file input
+    event.target.value = "";
+  };
+
+  // Apply imported configuration
+  const handleConfirmImport = () => {
+    if (!pendingConfig) return;
+
+    const counts = countConfigItems(pendingConfig);
+
+    // Update settings with imported config
+    const settingsUpdates: Partial<UserSettings> = {
+      customCategories: [...settings.customCategories, ...pendingConfig.customCategories],
+      customSubcategories: pendingConfig.customSubcategories,
+      purposes: [...(settings.purposes || []), ...pendingConfig.purposes],
+      customIncomeSources: [...settings.customIncomeSources, ...pendingConfig.customIncomeSources],
+      currencyIncomes: [...(settings.currencyIncomes || []), ...pendingConfig.currencyIncomes],
+      currencySavings: [...(settings.currencySavings || []), ...pendingConfig.currencySavings],
+    };
+
+    onUpdateSettings(settingsUpdates);
+
+    // Import recurring expenses
+    if (pendingConfig.recurringExpenses.length > 0 && onImportRecurringExpenses) {
+      onImportRecurringExpenses(pendingConfig.recurringExpenses);
+    }
+
+    // Import recurring incomes
+    if (pendingConfig.recurringIncomes.length > 0 && onImportRecurringIncomes) {
+      onImportRecurringIncomes(pendingConfig.recurringIncomes);
+    }
+
+    const importedCount = Object.values(counts).reduce((a, b) => a + b, 0);
+    toast.success("Configuration imported", {
+      description: `${importedCount} item${importedCount !== 1 ? "s" : ""} imported successfully.`,
+    });
+
+    setPendingConfig(null);
+    setShowImportConfirm(false);
   };
 
   return (
@@ -393,6 +506,52 @@ const SettingsPanel = ({
             Data Management
           </h3>
           <Card className="rounded-2xl divide-y divide-border">
+            {/* Export Configuration */}
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={handleExportConfig}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <FolderUp className="w-5 h-5 text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Export Configuration</p>
+                  <p className="text-sm text-muted-foreground">
+                    Save categories, purposes & recurring items
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+
+            {/* Import Configuration */}
+            <button
+              className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <FolderDown className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium">Import Configuration</p>
+                  <p className="text-sm text-muted-foreground">
+                    Restore settings from backup
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              className="hidden"
+              onChange={handleImportConfig}
+            />
+
+            {/* App Reset */}
             <button
               className="w-full p-4 flex items-center justify-between hover:bg-destructive/5 transition-colors"
               onClick={() => setShowResetDialog(true)}
@@ -493,6 +652,60 @@ const SettingsPanel = ({
               onClick={handleResetApp}
             >
               Reset Everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Import Confirmation Dialog */}
+      <AlertDialog open={showImportConfirm} onOpenChange={setShowImportConfirm}>
+        <AlertDialogContent className="max-w-[90%] rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import Configuration?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>The following items will be imported:</p>
+                {pendingConfig && (
+                  <ul className="text-sm space-y-1 mt-2">
+                    {countConfigItems(pendingConfig).customCategories > 0 && (
+                      <li>• {countConfigItems(pendingConfig).customCategories} custom categories</li>
+                    )}
+                    {countConfigItems(pendingConfig).customSubcategories > 0 && (
+                      <li>• {countConfigItems(pendingConfig).customSubcategories} custom subcategories</li>
+                    )}
+                    {countConfigItems(pendingConfig).purposes > 0 && (
+                      <li>• {countConfigItems(pendingConfig).purposes} purposes</li>
+                    )}
+                    {countConfigItems(pendingConfig).customIncomeSources > 0 && (
+                      <li>• {countConfigItems(pendingConfig).customIncomeSources} income sources</li>
+                    )}
+                    {countConfigItems(pendingConfig).recurringExpenses > 0 && (
+                      <li>• {countConfigItems(pendingConfig).recurringExpenses} recurring expenses</li>
+                    )}
+                    {countConfigItems(pendingConfig).recurringIncomes > 0 && (
+                      <li>• {countConfigItems(pendingConfig).recurringIncomes} recurring incomes</li>
+                    )}
+                    {countConfigItems(pendingConfig).currencyIncomes > 0 && (
+                      <li>• {countConfigItems(pendingConfig).currencyIncomes} currency incomes</li>
+                    )}
+                    {countConfigItems(pendingConfig).currencySavings > 0 && (
+                      <li>• {countConfigItems(pendingConfig).currencySavings} currency savings</li>
+                    )}
+                  </ul>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Duplicate items are automatically excluded.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl"
+              onClick={handleConfirmImport}
+            >
+              Import
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
