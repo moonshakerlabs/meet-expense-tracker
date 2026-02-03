@@ -166,24 +166,67 @@ export const useGooglePlayBilling = () => {
 
     setState((prev) => ({ ...prev, isPurchasing: true, error: null }));
 
+    // Helper to create a timeout promise
+    const createTimeout = (ms: number, message: string) => 
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error(message)), ms)
+      );
+
     try {
-      const NativePurchases = await getPlugin();
+      // Load plugin with timeout
+      const NativePurchases = await Promise.race([
+        getPlugin(),
+        createTimeout(10000, "Billing service connection timeout")
+      ]);
       console.log("[Billing] Plugin loaded:", !!NativePurchases);
       
       if (!NativePurchases) {
-        throw new Error("Billing plugin not available");
+        throw new Error("Billing plugin not available. Please ensure Google Play Services is installed.");
       }
 
       console.log("[Billing] Starting purchase for product:", FREEMIUM_PRODUCT_ID);
       
+      // First verify the product exists
+      try {
+        console.log("[Billing] Checking if product exists...");
+        const { products } = await Promise.race([
+          NativePurchases.getProducts({
+            productIdentifiers: [FREEMIUM_PRODUCT_ID],
+            productType: "INAPP" as any,
+          }),
+          createTimeout(10000, "Failed to fetch product info")
+        ]);
+        
+        console.log("[Billing] Products found:", JSON.stringify(products));
+        
+        if (!products || products.length === 0) {
+          throw new Error(`Product '${FREEMIUM_PRODUCT_ID}' not found in Google Play. Please check your Google Play Console setup.`);
+        }
+      } catch (productError: any) {
+        console.error("[Billing] Product check failed:", productError);
+        if (productError.message?.includes("not found")) {
+          throw productError;
+        }
+        // Continue anyway - product check may fail but purchase might still work
+        console.warn("[Billing] Continuing despite product check failure");
+      }
+      
       let transaction: any;
       try {
-        transaction = await NativePurchases.purchaseProduct({
-          productIdentifier: FREEMIUM_PRODUCT_ID,
-          productType: "INAPP" as any,
-        });
+        // Purchase with timeout (60 seconds to allow user to complete payment)
+        console.log("[Billing] Initiating purchase...");
+        transaction = await Promise.race([
+          NativePurchases.purchaseProduct({
+            productIdentifier: FREEMIUM_PRODUCT_ID,
+            productType: "INAPP" as any,
+          }),
+          createTimeout(60000, "Purchase timeout - please try again")
+        ]);
       } catch (purchaseError: any) {
         console.error("[Billing] purchaseProduct threw:", purchaseError);
+        console.error("[Billing] Error code:", purchaseError?.code);
+        console.error("[Billing] Error message:", purchaseError?.message);
+        
         // Some plugins throw on user cancel instead of returning
         if (purchaseError?.code === "USER_CANCELED" || 
             purchaseError?.message?.toLowerCase().includes("cancel") ||

@@ -51,6 +51,14 @@ const UpgradeScreen = ({
   });
 
   const handlePurchase = async () => {
+    // Check if billing is available (not loading and available)
+    if (!billingLoading && !billingAvailable) {
+      toast.error("Upgrade could not be completed", {
+        description: "Please try again later.",
+      });
+      return;
+    }
+
     const result = await purchaseFreemium();
     if (result.success) {
       onUpgradeToPaid();
@@ -59,8 +67,8 @@ const UpgradeScreen = ({
       });
     } else if (!result.cancelled) {
       // Only show error if it wasn't a user cancellation
-      toast.error("Purchase not completed", {
-        description: result.error || "Please try again or check your Google Play account.",
+      toast.error("Upgrade could not be completed", {
+        description: result.error || "Please try again later.",
       });
     }
   };
@@ -236,10 +244,10 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || isPurchasing || billingLoading}
+              disabled={!isNativeAndroid || isPurchasing}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : billingLoading ? "Loading..." : `Upgrade to Freemium ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : `Upgrade to Freemium ${productPrice || ""}`}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -256,10 +264,10 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || isPurchasing || billingLoading}
+              disabled={!isNativeAndroid || isPurchasing}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : billingLoading ? "Loading..." : `Unlock Forever ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -276,10 +284,10 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || isPurchasing || billingLoading}
+              disabled={!isNativeAndroid || isPurchasing}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : billingLoading ? "Loading..." : `Unlock Forever ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
