@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
 import { SubscriptionState, SubscriptionTier, TRIAL_DURATION_DAYS, getFeatureAccess } from "@/types/subscription";
+import { FREEMIUM_PRODUCT_ID } from "@/hooks/useGooglePlayBilling";
 
 const STORAGE_KEY = "meet_subscription";
 
@@ -13,6 +15,7 @@ export const useSubscription = () => {
   const [state, setState] = useState<SubscriptionState>(getDefaultState());
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const autoRestoreDone = useRef(false);
 
   // Load subscription state from localStorage
   useEffect(() => {
@@ -39,6 +42,84 @@ export const useSubscription = () => {
       setHasLoaded(true);
     }
   }, []);
+
+  // Auto-restore purchases on app startup (Android only)
+  useEffect(() => {
+    if (!hasLoaded || autoRestoreDone.current) return;
+    
+    // Skip if already paid
+    if (state.tier === "freemium_paid") {
+      autoRestoreDone.current = true;
+      return;
+    }
+
+    // Only run on native Android
+    if (Capacitor.getPlatform() !== "android") {
+      autoRestoreDone.current = true;
+      return;
+    }
+
+    autoRestoreDone.current = true;
+
+    const checkAndRestore = async () => {
+      console.log("[Subscription] Auto-checking for existing purchases...");
+      
+      // Wait for CdvPurchase to be available
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      if (typeof CdvPurchase === "undefined" || !CdvPurchase.store) {
+        console.log("[Subscription] CdvPurchase not available for auto-restore");
+        return;
+      }
+
+      try {
+        const store = CdvPurchase.store;
+        
+        // Register product if not already registered
+        store.register([{
+          id: FREEMIUM_PRODUCT_ID,
+          type: CdvPurchase.ProductType.NON_CONSUMABLE,
+          platform: CdvPurchase.Platform.GOOGLE_PLAY,
+        }]);
+
+        // Initialize if needed
+        await store.initialize([CdvPurchase.Platform.GOOGLE_PLAY]);
+
+        // Check if product is owned
+        const product = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
+        
+        if (product?.owned) {
+          console.log("[Subscription] Found existing purchase, restoring paid status");
+          setState(prev => ({
+            ...prev,
+            tier: "freemium_paid",
+            purchaseDate: prev.purchaseDate || new Date().toISOString(),
+          }));
+        } else {
+          // Try restore in case ownership isn't reflected yet
+          console.log("[Subscription] Attempting restore...");
+          await store.restorePurchases();
+          
+          // Check again after restore
+          const productAfterRestore = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
+          if (productAfterRestore?.owned) {
+            console.log("[Subscription] Restored purchase successfully");
+            setState(prev => ({
+              ...prev,
+              tier: "freemium_paid",
+              purchaseDate: prev.purchaseDate || new Date().toISOString(),
+            }));
+          } else {
+            console.log("[Subscription] No existing purchase found");
+          }
+        }
+      } catch (e) {
+        console.error("[Subscription] Auto-restore error:", e);
+      }
+    };
+
+    checkAndRestore();
+  }, [hasLoaded, state.tier]);
 
   // Save to localStorage only after initial load is complete
   useEffect(() => {

@@ -29,7 +29,6 @@ const UpgradeScreen = ({
     isAvailable: billingAvailable,
     isLoading: billingLoading,
     isPurchasing,
-    productPrice,
     error: billingError,
     isNativeAndroid,
     purchaseFreemium,
@@ -42,7 +41,6 @@ const UpgradeScreen = ({
     billingAvailable,
     billingLoading,
     isPurchasing,
-    productPrice,
     billingError,
     isPaid,
     isTrialActive,
@@ -247,7 +245,7 @@ const UpgradeScreen = ({
               disabled={!isNativeAndroid || isPurchasing}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : `Upgrade to Freemium ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : "Upgrade to Freemium"}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -267,7 +265,7 @@ const UpgradeScreen = ({
               disabled={!isNativeAndroid || isPurchasing}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : "Unlock Forever"}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -287,7 +285,7 @@ const UpgradeScreen = ({
               disabled={!isNativeAndroid || isPurchasing}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : `Unlock Forever ${productPrice || ""}`}
+              {isPurchasing ? "Processing..." : "Unlock Forever"}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
