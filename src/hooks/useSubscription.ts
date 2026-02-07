@@ -11,6 +11,21 @@ const getDefaultState = (): SubscriptionState => ({
   dataAcknowledged: false,
 });
 
+// Dynamic import for native purchases
+const getNativePurchases = async () => {
+  if (Capacitor.getPlatform() !== "android") {
+    return null;
+  }
+  try {
+    const { NativePurchases } = await import("@capgo/native-purchases");
+    const { PURCHASE_TYPE } = await import("@capgo/native-purchases");
+    return { NativePurchases, PURCHASE_TYPE };
+  } catch (e) {
+    console.error("[Subscription] Failed to import NativePurchases:", e);
+    return null;
+  }
+};
+
 export const useSubscription = () => {
   const [state, setState] = useState<SubscriptionState>(getDefaultState());
   const [isLoading, setIsLoading] = useState(true);
@@ -64,31 +79,37 @@ export const useSubscription = () => {
     const checkAndRestore = async () => {
       console.log("[Subscription] Auto-checking for existing purchases...");
       
-      // Wait for CdvPurchase to be available
-      await new Promise(resolve => setTimeout(resolve, 2500));
-
-      if (typeof CdvPurchase === "undefined" || !CdvPurchase.store) {
-        console.log("[Subscription] CdvPurchase not available for auto-restore");
-        return;
-      }
+      // Wait a bit for native side to be ready
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       try {
-        const store = CdvPurchase.store;
-        
-        // Register product if not already registered
-        store.register([{
-          id: FREEMIUM_PRODUCT_ID,
-          type: CdvPurchase.ProductType.NON_CONSUMABLE,
-          platform: CdvPurchase.Platform.GOOGLE_PLAY,
-        }]);
+        const imports = await getNativePurchases();
+        if (!imports) {
+          console.log("[Subscription] NativePurchases not available for auto-restore");
+          return;
+        }
 
-        // Initialize if needed
-        await store.initialize([CdvPurchase.Platform.GOOGLE_PLAY]);
+        const { NativePurchases, PURCHASE_TYPE } = imports;
 
-        // Check if product is owned
-        const product = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
-        
-        if (product?.owned) {
+        // Check if billing is supported
+        const { isBillingSupported } = await NativePurchases.isBillingSupported();
+        if (!isBillingSupported) {
+          console.log("[Subscription] Billing not supported for auto-restore");
+          return;
+        }
+
+        // Get existing purchases
+        const { purchases } = await NativePurchases.getPurchases({
+          productType: PURCHASE_TYPE.INAPP,
+        });
+
+        console.log("[Subscription] Found purchases:", purchases);
+
+        const hasPurchase = purchases?.some(
+          (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID
+        );
+
+        if (hasPurchase) {
           console.log("[Subscription] Found existing purchase, restoring paid status");
           setState(prev => ({
             ...prev,
@@ -96,22 +117,7 @@ export const useSubscription = () => {
             purchaseDate: prev.purchaseDate || new Date().toISOString(),
           }));
         } else {
-          // Try restore in case ownership isn't reflected yet
-          console.log("[Subscription] Attempting restore...");
-          await store.restorePurchases();
-          
-          // Check again after restore
-          const productAfterRestore = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
-          if (productAfterRestore?.owned) {
-            console.log("[Subscription] Restored purchase successfully");
-            setState(prev => ({
-              ...prev,
-              tier: "freemium_paid",
-              purchaseDate: prev.purchaseDate || new Date().toISOString(),
-            }));
-          } else {
-            console.log("[Subscription] No existing purchase found");
-          }
+          console.log("[Subscription] No existing purchase found");
         }
       } catch (e) {
         console.error("[Subscription] Auto-restore error:", e);

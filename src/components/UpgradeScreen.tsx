@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Check, Crown, Award, Clock, RefreshCw, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Check, Crown, Award, Clock, ShoppingCart, Loader2 } from "lucide-react";
 import { FREE_FEATURES, FREEMIUM_FEATURES } from "@/types/subscription";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGooglePlayBilling } from "@/hooks/useGooglePlayBilling";
@@ -29,6 +29,7 @@ const UpgradeScreen = ({
     isAvailable: billingAvailable,
     isLoading: billingLoading,
     isPurchasing,
+    productPrice,
     error: billingError,
     isNativeAndroid,
     purchaseFreemium,
@@ -41,6 +42,7 @@ const UpgradeScreen = ({
     billingAvailable,
     billingLoading,
     isPurchasing,
+    productPrice,
     billingError,
     isPaid,
     isTrialActive,
@@ -49,31 +51,38 @@ const UpgradeScreen = ({
   });
 
   const handlePurchase = async () => {
-    // Check if billing is available (not loading and available)
-    if (!billingLoading && !billingAvailable) {
-      toast.error("Upgrade could not be completed", {
-        description: "Please try again later.",
-      });
-      return;
-    }
-
-    const result = await purchaseFreemium();
-    if (result.success) {
-      onUpgradeToPaid();
-      toast.success("Welcome to Freemium!", {
-        description: "All premium features are now unlocked.",
-      });
-    } else if (!result.cancelled) {
-      // Only show error if it wasn't a user cancellation
-      toast.error("Upgrade could not be completed", {
-        description: result.error || "Please try again later.",
+    console.log("[UpgradeScreen] handlePurchase called");
+    
+    // On Android, always attempt purchase - let Google Play handle errors
+    if (isNativeAndroid) {
+      const result = await purchaseFreemium();
+      console.log("[UpgradeScreen] Purchase result:", result);
+      
+      if (result.success) {
+        onUpgradeToPaid();
+        toast.success("Welcome to Freemium!", {
+          description: "All premium features are now unlocked.",
+        });
+      } else if (result.cancelled) {
+        // User cancelled - no toast needed
+        console.log("[UpgradeScreen] User cancelled purchase");
+      } else {
+        toast.error("Upgrade could not be completed", {
+          description: result.error || "Please try again later.",
+        });
+      }
+    } else {
+      toast.error("Purchase not available", {
+        description: "In-app purchases are only available in the Android app.",
       });
     }
   };
 
   const handleRestore = async () => {
-    toast.loading("Restoring purchases...");
+    const toastId = toast.loading("Restoring purchases...");
     const restored = await restorePurchases();
+    toast.dismiss(toastId);
+    
     if (restored) {
       onUpgradeToPaid();
       toast.success("Purchase restored!", {
@@ -84,6 +93,13 @@ const UpgradeScreen = ({
         description: "We couldn't find any previous purchases to restore.",
       });
     }
+  };
+
+  const getPurchaseButtonText = () => {
+    if (isPurchasing) return "Processing...";
+    if (billingLoading) return "Loading...";
+    if (productPrice) return `Upgrade for ${productPrice}`;
+    return "Upgrade to Freemium";
   };
 
   return (
@@ -242,10 +258,14 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || isPurchasing}
+              disabled={!isNativeAndroid || isPurchasing || billingLoading}
             >
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : "Upgrade to Freemium"}
+              {isPurchasing ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-5 h-5 mr-2" />
+              )}
+              {getPurchaseButtonText()}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -262,10 +282,14 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || isPurchasing}
+              disabled={!isNativeAndroid || isPurchasing || billingLoading}
             >
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : "Unlock Forever"}
+              {isPurchasing ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-5 h-5 mr-2" />
+              )}
+              {isPurchasing ? "Processing..." : productPrice ? `Unlock Forever for ${productPrice}` : "Unlock Forever"}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">
@@ -282,10 +306,14 @@ const UpgradeScreen = ({
               size="lg"
               className="w-full rounded-2xl h-14 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white border-0"
               onClick={handlePurchase}
-              disabled={!isNativeAndroid || isPurchasing}
+              disabled={!isNativeAndroid || isPurchasing || billingLoading}
             >
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              {isPurchasing ? "Processing..." : "Unlock Forever"}
+              {isPurchasing ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-5 h-5 mr-2" />
+              )}
+              {isPurchasing ? "Processing..." : productPrice ? `Unlock Forever for ${productPrice}` : "Unlock Forever"}
             </Button>
             {!isNativeAndroid && (
               <p className="text-xs text-center text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
-import "cordova-plugin-purchase";
+import { PURCHASE_TYPE } from "@capgo/native-purchases";
 
 // Product ID for the one-time Freemium purchase
 export const FREEMIUM_PRODUCT_ID = "meet_freemium";
@@ -19,12 +19,18 @@ export interface PurchaseResult {
   error?: string;
 }
 
-// Get the CdvPurchase store instance
-const getStore = (): typeof CdvPurchase.store | null => {
-  if (typeof CdvPurchase !== "undefined" && CdvPurchase.store) {
-    return CdvPurchase.store;
+// Dynamically import the plugin only on native
+const getNativePurchases = async () => {
+  if (Capacitor.getPlatform() !== "android") {
+    return null;
   }
-  return null;
+  try {
+    const { NativePurchases } = await import("@capgo/native-purchases");
+    return NativePurchases;
+  } catch (e) {
+    console.error("[Billing] Failed to import NativePurchases:", e);
+    return null;
+  }
 };
 
 export const useGooglePlayBilling = () => {
@@ -39,17 +45,19 @@ export const useGooglePlayBilling = () => {
   const isNativeAndroid = Capacitor.getPlatform() === "android";
   const mounted = useRef(true);
   const initDone = useRef(false);
-  const purchaseResolverRef = useRef<((result: PurchaseResult) => void) | null>(null);
+  const pluginRef = useRef<any>(null);
 
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   // Initialize on mount
   useEffect(() => {
     if (!isNativeAndroid) {
-      setState(s => ({ ...s, isLoading: false, isAvailable: false }));
+      setState((s) => ({ ...s, isLoading: false, isAvailable: false }));
       return;
     }
 
@@ -57,99 +65,85 @@ export const useGooglePlayBilling = () => {
     initDone.current = true;
 
     const doInit = async () => {
-      console.log("[Billing] Initializing CdvPurchase...");
+      console.log("[Billing] Initializing @capgo/native-purchases...");
 
-      const store = getStore();
-      if (!store || !mounted.current) {
-        console.log("[Billing] CdvPurchase store not available");
-        if (mounted.current) {
-          setState(s => ({ ...s, isLoading: false, isAvailable: false }));
-        }
-        return;
-      }
-
-      // Set verbosity for debugging
-      store.verbosity = CdvPurchase.LogLevel.DEBUG;
-
-      // Register the product
-      store.register([{
-        id: FREEMIUM_PRODUCT_ID,
-        type: CdvPurchase.ProductType.NON_CONSUMABLE,
-        platform: CdvPurchase.Platform.GOOGLE_PLAY,
-      }]);
-
-      // Listen for transaction updates
-      store.when()
-        .approved((transaction) => {
-          console.log("[Billing] Transaction approved:", transaction.transactionId);
-          // Verify and finish the transaction
-          transaction.verify();
-        })
-        .verified((receipt) => {
-          console.log("[Billing] Receipt verified:", receipt.id);
-          // Finish the transaction
-          receipt.finish();
-        })
-        .finished((transaction) => {
-          console.log("[Billing] Transaction finished:", transaction.transactionId);
-          // Resolve purchase promise if we have one pending
-          if (purchaseResolverRef.current) {
-            purchaseResolverRef.current({ success: true });
-            purchaseResolverRef.current = null;
-          }
-          if (mounted.current) {
-            setState(s => ({ ...s, isPurchasing: false }));
-          }
-        });
-
-      // Handle errors
-      store.error((error) => {
-        console.error("[Billing] Store error:", error.code, error.message);
-        if (purchaseResolverRef.current) {
-          const cancelled = error.code === CdvPurchase.ErrorCode.PAYMENT_CANCELLED;
-          purchaseResolverRef.current({
-            success: false,
-            cancelled,
-            error: cancelled ? undefined : error.message,
-          });
-          purchaseResolverRef.current = null;
-        }
-        if (mounted.current) {
-          setState(s => ({ ...s, isPurchasing: false, error: error.message }));
-        }
-      });
-
-      // Initialize the store
       try {
-        console.log("[Billing] Calling store.initialize()...");
-        await store.initialize([CdvPurchase.Platform.GOOGLE_PLAY]);
-        console.log("[Billing] Store initialized successfully");
-
-        // Get product info
-        const product = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
-        const price = product?.pricing?.price || null;
-        console.log("[Billing] Product:", product?.id, "Price:", price);
-
-        if (mounted.current) {
-          setState(s => ({
-            ...s,
-            isLoading: false,
-            isAvailable: true,
-            productPrice: price,
-          }));
+        const NativePurchases = await getNativePurchases();
+        if (!NativePurchases || !mounted.current) {
+          console.log("[Billing] NativePurchases not available");
+          if (mounted.current) {
+            setState((s) => ({ ...s, isLoading: false, isAvailable: false }));
+          }
+          return;
         }
+
+        pluginRef.current = NativePurchases;
+
+        // Check if billing is supported
+        const { isBillingSupported } = await NativePurchases.isBillingSupported();
+        console.log("[Billing] Billing supported:", isBillingSupported);
+
+        if (!isBillingSupported) {
+          if (mounted.current) {
+            setState((s) => ({
+              ...s,
+              isLoading: false,
+              isAvailable: false,
+              error: "Billing not supported",
+            }));
+          }
+          return;
+        }
+
+        // Get products to fetch price
+        try {
+          const { products } = await NativePurchases.getProducts({
+            productIdentifiers: [FREEMIUM_PRODUCT_ID],
+            productType: PURCHASE_TYPE.INAPP,
+          });
+
+          console.log("[Billing] Products:", products);
+
+          const product = products?.find((p: any) => p.identifier === FREEMIUM_PRODUCT_ID);
+          const price = product?.priceString || null;
+
+          if (mounted.current) {
+            setState((s) => ({
+              ...s,
+              isLoading: false,
+              isAvailable: true,
+              productPrice: price,
+            }));
+          }
+        } catch (productError) {
+          console.error("[Billing] Error fetching products:", productError);
+          // Still mark as available - we can try purchasing without price info
+          if (mounted.current) {
+            setState((s) => ({
+              ...s,
+              isLoading: false,
+              isAvailable: true,
+              productPrice: null,
+            }));
+          }
+        }
+
+        console.log("[Billing] Init complete");
       } catch (e: any) {
         console.error("[Billing] Initialize error:", e);
         if (mounted.current) {
-          setState(s => ({ ...s, isLoading: false, isAvailable: false, error: e?.message }));
+          setState((s) => ({
+            ...s,
+            isLoading: false,
+            isAvailable: false,
+            error: e?.message,
+          }));
         }
       }
-
-      console.log("[Billing] Init complete");
     };
 
-    // Delay to let Cordova/native side initialize
-    const timer = setTimeout(doInit, 1500);
+    // Small delay to let native side initialize
+    const timer = setTimeout(doInit, 500);
     return () => clearTimeout(timer);
   }, [isNativeAndroid]);
 
@@ -161,60 +155,45 @@ export const useGooglePlayBilling = () => {
       return { success: false, error: "Not on Android" };
     }
 
-    const store = getStore();
-    if (!store) {
+    const NativePurchases = pluginRef.current || (await getNativePurchases());
+    if (!NativePurchases) {
       return { success: false, error: "Billing not available" };
     }
 
-    setState(s => ({ ...s, isPurchasing: true, error: null }));
+    setState((s) => ({ ...s, isPurchasing: true, error: null }));
 
     try {
-      const product = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
-      if (!product) {
-        setState(s => ({ ...s, isPurchasing: false }));
-        return { success: false, error: "Product not found" };
-      }
+      console.log("[Billing] Starting purchase for:", FREEMIUM_PRODUCT_ID);
 
-      // Check if already owned
-      if (product.owned) {
-        console.log("[Billing] Product already owned");
-        setState(s => ({ ...s, isPurchasing: false }));
-        return { success: true };
-      }
-
-      console.log("[Billing] Starting purchase order...");
-
-      // Create a promise that will be resolved by the event handlers
-      const purchasePromise = new Promise<PurchaseResult>((resolve) => {
-        purchaseResolverRef.current = resolve;
-
-        // Set a timeout in case something goes wrong
-        setTimeout(() => {
-          if (purchaseResolverRef.current === resolve) {
-            purchaseResolverRef.current = null;
-            resolve({ success: false, error: "Purchase timed out" });
-          }
-        }, 120000); // 2 minute timeout
+      // This triggers the Google Play purchase dialog
+      const transaction = await NativePurchases.purchaseProduct({
+        productIdentifier: FREEMIUM_PRODUCT_ID,
+        productType: PURCHASE_TYPE.INAPP,
       });
 
-      // Start the purchase
-      const offer = product.getOffer();
-      if (offer) {
-        await store.order(offer);
+      console.log("[Billing] Purchase transaction:", transaction);
+
+      if (transaction && transaction.transactionId) {
+        console.log("[Billing] Purchase successful:", transaction.transactionId);
+        setState((s) => ({ ...s, isPurchasing: false }));
+        return { success: true };
       } else {
-        setState(s => ({ ...s, isPurchasing: false }));
-        return { success: false, error: "No offer available" };
+        setState((s) => ({ ...s, isPurchasing: false }));
+        return { success: false, error: "Purchase not completed" };
       }
-
-      // Wait for the purchase to complete
-      return await purchasePromise;
-
     } catch (e: any) {
       console.error("[Billing] Purchase error:", e);
-      setState(s => ({ ...s, isPurchasing: false }));
+      setState((s) => ({ ...s, isPurchasing: false }));
 
-      const msg = (e?.message || "").toLowerCase();
-      if (msg.includes("cancel")) {
+      const msg = (e?.message || e?.code || "").toLowerCase();
+      
+      // Check for user cancellation
+      if (
+        msg.includes("cancel") ||
+        msg.includes("user_canceled") ||
+        e?.code === "USER_CANCELED" ||
+        e?.code === 1 // BillingResponseCode.USER_CANCELED
+      ) {
         return { success: false, cancelled: true };
       }
 
@@ -227,11 +206,22 @@ export const useGooglePlayBilling = () => {
     if (!isNativeAndroid) return false;
 
     try {
-      const store = getStore();
-      if (!store) return false;
+      const NativePurchases = pluginRef.current || (await getNativePurchases());
+      if (!NativePurchases) return false;
 
-      const product = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
-      return product?.owned || false;
+      console.log("[Billing] Checking existing purchases...");
+
+      const { purchases } = await NativePurchases.getPurchases({
+        productType: PURCHASE_TYPE.INAPP,
+      });
+
+      console.log("[Billing] Existing purchases:", purchases);
+
+      const hasPurchase = purchases?.some(
+        (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID
+      );
+
+      return hasPurchase || false;
     } catch (e) {
       console.error("[Billing] checkExistingPurchase error:", e);
       return false;
@@ -243,15 +233,26 @@ export const useGooglePlayBilling = () => {
     if (!isNativeAndroid) return false;
 
     try {
-      const store = getStore();
-      if (!store) return false;
+      const NativePurchases = pluginRef.current || (await getNativePurchases());
+      if (!NativePurchases) return false;
 
       console.log("[Billing] Restoring purchases...");
-      await store.restorePurchases();
 
-      // Check if product is now owned
-      const product = store.get(FREEMIUM_PRODUCT_ID, CdvPurchase.Platform.GOOGLE_PLAY);
-      return product?.owned || false;
+      // Call restorePurchases first
+      await NativePurchases.restorePurchases();
+
+      // Then get purchases to check if product is owned
+      const { purchases } = await NativePurchases.getPurchases({
+        productType: PURCHASE_TYPE.INAPP,
+      });
+
+      console.log("[Billing] Restored purchases:", purchases);
+
+      const hasPurchase = purchases?.some(
+        (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID
+      );
+
+      return hasPurchase || false;
     } catch (e) {
       console.error("[Billing] Restore error:", e);
       return false;
