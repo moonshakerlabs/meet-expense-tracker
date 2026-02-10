@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
-import { PURCHASE_TYPE } from "@capgo/native-purchases";
 
-// Product ID for the one-time Freemium purchase
 export const FREEMIUM_PRODUCT_ID = "meet_freemium";
 
-interface PurchaseState {
+interface BillingState {
   isAvailable: boolean;
   isLoading: boolean;
   isPurchasing: boolean;
@@ -19,22 +17,20 @@ export interface PurchaseResult {
   error?: string;
 }
 
-// Dynamically import the plugin only on native
-const getNativePurchases = async () => {
-  if (Capacitor.getPlatform() !== "android") {
-    return null;
-  }
+// Dynamically import the plugin only on native Android
+const getNativePurchasesModule = async () => {
+  if (Capacitor.getPlatform() !== "android") return null;
   try {
-    const { NativePurchases } = await import("@capgo/native-purchases");
-    return NativePurchases;
+    const mod = await import("@capgo/native-purchases");
+    return { NativePurchases: mod.NativePurchases, PURCHASE_TYPE: mod.PURCHASE_TYPE };
   } catch (e) {
-    console.error("[Billing] Failed to import NativePurchases:", e);
+    console.error("[Billing] Failed to import @capgo/native-purchases:", e);
     return null;
   }
 };
 
 export const useGooglePlayBilling = () => {
-  const [state, setState] = useState<PurchaseState>({
+  const [state, setState] = useState<BillingState>({
     isAvailable: false,
     isLoading: true,
     isPurchasing: false,
@@ -45,214 +41,136 @@ export const useGooglePlayBilling = () => {
   const isNativeAndroid = Capacitor.getPlatform() === "android";
   const mounted = useRef(true);
   const initDone = useRef(false);
-  const pluginRef = useRef<any>(null);
+  const pluginCache = useRef<any>(null);
 
   useEffect(() => {
     mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
+    return () => { mounted.current = false; };
   }, []);
 
-  // Initialize on mount
+  // Initialize billing
   useEffect(() => {
     if (!isNativeAndroid) {
-      setState((s) => ({ ...s, isLoading: false, isAvailable: false }));
+      setState(s => ({ ...s, isLoading: false, isAvailable: false }));
       return;
     }
-
     if (initDone.current) return;
     initDone.current = true;
 
-    const doInit = async () => {
-      console.log("[Billing] Initializing @capgo/native-purchases...");
-
+    const init = async () => {
+      console.log("[Billing] Initializing...");
       try {
-        const NativePurchases = await getNativePurchases();
-        if (!NativePurchases || !mounted.current) {
-          console.log("[Billing] NativePurchases not available");
-          if (mounted.current) {
-            setState((s) => ({ ...s, isLoading: false, isAvailable: false }));
-          }
+        const mod = await getNativePurchasesModule();
+        if (!mod || !mounted.current) {
+          if (mounted.current) setState(s => ({ ...s, isLoading: false, isAvailable: false }));
           return;
         }
+        pluginCache.current = mod;
 
-        pluginRef.current = NativePurchases;
-
-        // Check if billing is supported
-        const { isBillingSupported } = await NativePurchases.isBillingSupported();
-        console.log("[Billing] Billing supported:", isBillingSupported);
+        const { isBillingSupported } = await mod.NativePurchases.isBillingSupported();
+        console.log("[Billing] Supported:", isBillingSupported);
 
         if (!isBillingSupported) {
-          if (mounted.current) {
-            setState((s) => ({
-              ...s,
-              isLoading: false,
-              isAvailable: false,
-              error: "Billing not supported",
-            }));
-          }
+          if (mounted.current) setState(s => ({ ...s, isLoading: false, isAvailable: false, error: "Billing not supported" }));
           return;
         }
 
-        // Get products to fetch price
+        // Fetch product price
+        let price: string | null = null;
         try {
-          const { products } = await NativePurchases.getProducts({
+          const { products } = await mod.NativePurchases.getProducts({
             productIdentifiers: [FREEMIUM_PRODUCT_ID],
-            productType: PURCHASE_TYPE.INAPP,
+            productType: mod.PURCHASE_TYPE.INAPP,
           });
-
-          console.log("[Billing] Products:", products);
-
           const product = products?.find((p: any) => p.identifier === FREEMIUM_PRODUCT_ID);
-          const price = product?.priceString || null;
-
-          if (mounted.current) {
-            setState((s) => ({
-              ...s,
-              isLoading: false,
-              isAvailable: true,
-              productPrice: price,
-            }));
-          }
-        } catch (productError) {
-          console.error("[Billing] Error fetching products:", productError);
-          // Still mark as available - we can try purchasing without price info
-          if (mounted.current) {
-            setState((s) => ({
-              ...s,
-              isLoading: false,
-              isAvailable: true,
-              productPrice: null,
-            }));
-          }
+          price = product?.priceString || null;
+          console.log("[Billing] Product price:", price);
+        } catch (e) {
+          console.warn("[Billing] Could not fetch product price:", e);
         }
 
-        console.log("[Billing] Init complete");
-      } catch (e: any) {
-        console.error("[Billing] Initialize error:", e);
         if (mounted.current) {
-          setState((s) => ({
-            ...s,
-            isLoading: false,
-            isAvailable: false,
-            error: e?.message,
-          }));
+          setState(s => ({ ...s, isLoading: false, isAvailable: true, productPrice: price }));
         }
+      } catch (e: any) {
+        console.error("[Billing] Init error:", e);
+        if (mounted.current) setState(s => ({ ...s, isLoading: false, isAvailable: false, error: e?.message }));
       }
     };
 
-    // Small delay to let native side initialize
-    const timer = setTimeout(doInit, 500);
+    const timer = setTimeout(init, 500);
     return () => clearTimeout(timer);
   }, [isNativeAndroid]);
 
-  // Purchase
+  // Purchase the freemium product — triggers Google Play billing popup
   const purchaseFreemium = useCallback(async (): Promise<PurchaseResult> => {
-    console.log("[Billing] purchaseFreemium called");
+    if (!isNativeAndroid) return { success: false, error: "Not on Android" };
 
-    if (!isNativeAndroid) {
-      return { success: false, error: "Not on Android" };
-    }
+    const mod = pluginCache.current || (await getNativePurchasesModule());
+    if (!mod) return { success: false, error: "Billing not available" };
 
-    const NativePurchases = pluginRef.current || (await getNativePurchases());
-    if (!NativePurchases) {
-      return { success: false, error: "Billing not available" };
-    }
-
-    setState((s) => ({ ...s, isPurchasing: true, error: null }));
+    setState(s => ({ ...s, isPurchasing: true, error: null }));
 
     try {
-      console.log("[Billing] Starting purchase for:", FREEMIUM_PRODUCT_ID);
-
-      // This triggers the Google Play purchase dialog
-      const transaction = await NativePurchases.purchaseProduct({
+      console.log("[Billing] Launching purchase for:", FREEMIUM_PRODUCT_ID);
+      const transaction = await mod.NativePurchases.purchaseProduct({
         productIdentifier: FREEMIUM_PRODUCT_ID,
-        productType: PURCHASE_TYPE.INAPP,
+        productType: mod.PURCHASE_TYPE.INAPP,
       });
 
-      console.log("[Billing] Purchase transaction:", transaction);
+      console.log("[Billing] Transaction:", transaction);
+      setState(s => ({ ...s, isPurchasing: false }));
 
-      if (transaction && transaction.transactionId) {
-        console.log("[Billing] Purchase successful:", transaction.transactionId);
-        setState((s) => ({ ...s, isPurchasing: false }));
+      if (transaction?.transactionId) {
         return { success: true };
-      } else {
-        setState((s) => ({ ...s, isPurchasing: false }));
-        return { success: false, error: "Purchase not completed" };
       }
+      return { success: false, error: "Purchase not completed" };
     } catch (e: any) {
       console.error("[Billing] Purchase error:", e);
-      setState((s) => ({ ...s, isPurchasing: false }));
+      setState(s => ({ ...s, isPurchasing: false }));
 
       const msg = (e?.message || e?.code || "").toLowerCase();
-      
-      // Check for user cancellation
-      if (
-        msg.includes("cancel") ||
-        msg.includes("user_canceled") ||
-        e?.code === "USER_CANCELED" ||
-        e?.code === 1 // BillingResponseCode.USER_CANCELED
-      ) {
+      if (msg.includes("cancel") || msg.includes("user_canceled") || e?.code === "USER_CANCELED" || e?.code === 1) {
         return { success: false, cancelled: true };
       }
-
       return { success: false, error: e?.message || "Purchase failed" };
     }
   }, [isNativeAndroid]);
 
-  // Check existing purchase
+  // Check if user already owns the product (for auto-restore on app launch)
   const checkExistingPurchase = useCallback(async (): Promise<boolean> => {
     if (!isNativeAndroid) return false;
-
     try {
-      const NativePurchases = pluginRef.current || (await getNativePurchases());
-      if (!NativePurchases) return false;
+      const mod = pluginCache.current || (await getNativePurchasesModule());
+      if (!mod) return false;
 
-      console.log("[Billing] Checking existing purchases...");
+      const { isBillingSupported } = await mod.NativePurchases.isBillingSupported();
+      if (!isBillingSupported) return false;
 
-      const { purchases } = await NativePurchases.getPurchases({
-        productType: PURCHASE_TYPE.INAPP,
+      const { purchases } = await mod.NativePurchases.getPurchases({
+        productType: mod.PURCHASE_TYPE.INAPP,
       });
-
       console.log("[Billing] Existing purchases:", purchases);
-
-      const hasPurchase = purchases?.some(
-        (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID
-      );
-
-      return hasPurchase || false;
+      return purchases?.some((p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID) || false;
     } catch (e) {
       console.error("[Billing] checkExistingPurchase error:", e);
       return false;
     }
   }, [isNativeAndroid]);
 
-  // Restore purchases
+  // Restore purchases (manual trigger)
   const restorePurchases = useCallback(async (): Promise<boolean> => {
     if (!isNativeAndroid) return false;
-
     try {
-      const NativePurchases = pluginRef.current || (await getNativePurchases());
-      if (!NativePurchases) return false;
+      const mod = pluginCache.current || (await getNativePurchasesModule());
+      if (!mod) return false;
 
-      console.log("[Billing] Restoring purchases...");
-
-      // Call restorePurchases first
-      await NativePurchases.restorePurchases();
-
-      // Then get purchases to check if product is owned
-      const { purchases } = await NativePurchases.getPurchases({
-        productType: PURCHASE_TYPE.INAPP,
+      await mod.NativePurchases.restorePurchases();
+      const { purchases } = await mod.NativePurchases.getPurchases({
+        productType: mod.PURCHASE_TYPE.INAPP,
       });
-
       console.log("[Billing] Restored purchases:", purchases);
-
-      const hasPurchase = purchases?.some(
-        (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID
-      );
-
-      return hasPurchase || false;
+      return purchases?.some((p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID) || false;
     } catch (e) {
       console.error("[Billing] Restore error:", e);
       return false;

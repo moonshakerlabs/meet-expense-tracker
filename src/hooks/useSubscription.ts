@@ -11,14 +11,11 @@ const getDefaultState = (): SubscriptionState => ({
   dataAcknowledged: false,
 });
 
-// Dynamic import for native purchases
+// Dynamic import for native purchases (auto-restore on launch)
 const getNativePurchases = async () => {
-  if (Capacitor.getPlatform() !== "android") {
-    return null;
-  }
+  if (Capacitor.getPlatform() !== "android") return null;
   try {
-    const { NativePurchases } = await import("@capgo/native-purchases");
-    const { PURCHASE_TYPE } = await import("@capgo/native-purchases");
+    const { NativePurchases, PURCHASE_TYPE } = await import("@capgo/native-purchases");
     return { NativePurchases, PURCHASE_TYPE };
   } catch (e) {
     console.error("[Subscription] Failed to import NativePurchases:", e);
@@ -32,22 +29,17 @@ export const useSubscription = () => {
   const [hasLoaded, setHasLoaded] = useState(false);
   const autoRestoreDone = useRef(false);
 
-  // Load subscription state from localStorage
+  // Load from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as SubscriptionState;
-        
-        // Check if trial has expired
         if (parsed.tier === "freemium_trial" && parsed.trialEndDate) {
-          const endDate = new Date(parsed.trialEndDate);
-          if (new Date() > endDate) {
-            // Trial has expired, revert to free
+          if (new Date() > new Date(parsed.trialEndDate)) {
             parsed.tier = "free";
           }
         }
-        
         setState(parsed);
       }
     } catch (error) {
@@ -58,17 +50,13 @@ export const useSubscription = () => {
     }
   }, []);
 
-  // Auto-restore purchases on app startup (Android only)
+  // Auto-restore on app launch: check Google Play for existing purchase
   useEffect(() => {
     if (!hasLoaded || autoRestoreDone.current) return;
-    
-    // Skip if already paid
     if (state.tier === "freemium_paid") {
       autoRestoreDone.current = true;
       return;
     }
-
-    // Only run on native Android
     if (Capacitor.getPlatform() !== "android") {
       autoRestoreDone.current = true;
       return;
@@ -78,32 +66,19 @@ export const useSubscription = () => {
 
     const checkAndRestore = async () => {
       console.log("[Subscription] Auto-checking for existing purchases...");
-      
-      // Wait a bit for native side to be ready
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       try {
         const imports = await getNativePurchases();
-        if (!imports) {
-          console.log("[Subscription] NativePurchases not available for auto-restore");
-          return;
-        }
+        if (!imports) return;
 
         const { NativePurchases, PURCHASE_TYPE } = imports;
-
-        // Check if billing is supported
         const { isBillingSupported } = await NativePurchases.isBillingSupported();
-        if (!isBillingSupported) {
-          console.log("[Subscription] Billing not supported for auto-restore");
-          return;
-        }
+        if (!isBillingSupported) return;
 
-        // Get existing purchases
         const { purchases } = await NativePurchases.getPurchases({
           productType: PURCHASE_TYPE.INAPP,
         });
-
-        console.log("[Subscription] Found purchases:", purchases);
 
         const hasPurchase = purchases?.some(
           (p: any) => p.productIdentifier === FREEMIUM_PRODUCT_ID
@@ -116,8 +91,6 @@ export const useSubscription = () => {
             tier: "freemium_paid",
             purchaseDate: prev.purchaseDate || new Date().toISOString(),
           }));
-        } else {
-          console.log("[Subscription] No existing purchase found");
         }
       } catch (e) {
         console.error("[Subscription] Auto-restore error:", e);
@@ -127,23 +100,18 @@ export const useSubscription = () => {
     checkAndRestore();
   }, [hasLoaded, state.tier]);
 
-  // Save to localStorage only after initial load is complete
+  // Persist to localStorage after initial load
   useEffect(() => {
     if (hasLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
   }, [state, hasLoaded]);
 
-  // Start 7-day free trial
   const startTrial = useCallback(() => {
-    if (state.trialUsed) {
-      return false; // Trial already used
-    }
-
+    if (state.trialUsed) return false;
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + TRIAL_DURATION_DAYS);
-
     setState(prev => ({
       ...prev,
       tier: "freemium_trial",
@@ -151,11 +119,9 @@ export const useSubscription = () => {
       trialEndDate: endDate.toISOString(),
       trialUsed: true,
     }));
-
     return true;
   }, [state.trialUsed]);
 
-  // Upgrade to paid Freemium (after successful Google Play purchase)
   const upgradeToPaid = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -165,62 +131,38 @@ export const useSubscription = () => {
     return true;
   }, []);
 
-  // Check if trial is active
   const isTrialActive = useCallback(() => {
-    if (state.tier !== "freemium_trial") return false;
-    if (!state.trialEndDate) return false;
-    
-    const endDate = new Date(state.trialEndDate);
-    return new Date() <= endDate;
+    if (state.tier !== "freemium_trial" || !state.trialEndDate) return false;
+    return new Date() <= new Date(state.trialEndDate);
   }, [state.tier, state.trialEndDate]);
 
-  // Check if user has paid for Freemium
-  const isPaid = useCallback(() => {
-    return state.tier === "freemium_paid";
-  }, [state.tier]);
+  const isPaid = useCallback(() => state.tier === "freemium_paid", [state.tier]);
 
-  // Get days remaining in trial
   const getTrialDaysRemaining = useCallback(() => {
     if (!state.trialEndDate) return 0;
-    
-    const endDate = new Date(state.trialEndDate);
-    const now = new Date();
-    const diffTime = endDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+    const diffDays = Math.ceil((new Date(state.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return Math.max(0, diffDays);
   }, [state.trialEndDate]);
 
-  // Acknowledge data protection
   const acknowledgeDataProtection = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      dataAcknowledged: true,
-    }));
+    setState(prev => ({ ...prev, dataAcknowledged: true }));
   }, []);
 
-  // Get current tier (checking for expired trial)
   const getCurrentTier = useCallback((): SubscriptionTier => {
-    if (state.tier === "freemium_trial" && !isTrialActive()) {
-      return "free";
-    }
+    if (state.tier === "freemium_trial" && !isTrialActive()) return "free";
     return state.tier;
   }, [state.tier, isTrialActive]);
 
-  // Get feature access
   const featureAccess = getFeatureAccess(getCurrentTier());
 
-  // Check if a specific feature is available
   const hasFeature = useCallback((feature: keyof typeof featureAccess) => {
     return featureAccess[feature];
   }, [featureAccess]);
 
-  // Check if user can use non-primary currency
   const canUseMultipleCurrencies = useCallback(() => {
     return featureAccess.useMultipleCurrencies;
   }, [featureAccess.useMultipleCurrencies]);
 
-  // Reset subscription (for app reset)
   const resetSubscription = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setState(getDefaultState());

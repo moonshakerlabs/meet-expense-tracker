@@ -256,7 +256,7 @@ const SettingsPanel = ({
       </div>
 
       <div className="p-5 space-y-6">
-        {/* Upgrade to Freemium */}
+        {/* Upgrade to Freemium / Freemium Status */}
         <div>
           <Card className="rounded-2xl overflow-hidden">
             <button
@@ -268,12 +268,17 @@ const SettingsPanel = ({
                   <Crown className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium">Upgrade to Freemium</p>
+                  <p className="font-medium">
+                    {subscriptionTier === "freemium_paid"
+                      ? "You are a Freemium user"
+                      : "Upgrade to Freemium"
+                    }
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {subscriptionTier === "freemium_trial" 
                       ? `Trial active • ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? "s" : ""} left`
                       : subscriptionTier === "freemium_paid"
-                      ? "Freemium active"
+                      ? "All features unlocked"
                       : "Unlock all features"
                     }
                   </p>
