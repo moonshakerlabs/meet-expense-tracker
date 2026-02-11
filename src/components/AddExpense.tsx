@@ -54,6 +54,7 @@ interface AddExpenseProps {
   isFreemium?: boolean;
   onAddSubcategory?: (categoryId: string, label: string, icon: string) => void;
   onAddPurpose?: (label: string) => void;
+  onAddCategory?: (label: string, icon: string) => void;
 }
 
 const AddExpense = ({ 
@@ -71,6 +72,7 @@ const AddExpense = ({
   isFreemium = false,
   onAddSubcategory,
   onAddPurpose,
+  onAddCategory,
 }: AddExpenseProps) => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<CategoryId | null>(null);
@@ -88,8 +90,11 @@ const AddExpense = ({
   // Inline add dialogs state
   const [showAddSubcategoryDialog, setShowAddSubcategoryDialog] = useState(false);
   const [showAddPurposeDialog, setShowAddPurposeDialog] = useState(false);
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [newSubcategoryName, setNewSubcategoryName] = useState("");
   const [newPurposeName, setNewPurposeName] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryIcon, setNewCategoryIcon] = useState("📁");
 
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, "");
@@ -305,6 +310,16 @@ const AddExpense = ({
                     )}
                   </Card>
                 ))}
+                {/* Add Category card for Freemium users */}
+                {isFreemium && onAddCategory && (
+                  <Card
+                    className="p-4 cursor-pointer transition-all duration-200 text-center border-dashed border-2 border-primary/30 hover:bg-primary/5"
+                    onClick={() => setShowAddCategoryDialog(true)}
+                  >
+                    <span className="text-2xl mb-1 block"><Plus className="w-6 h-6 mx-auto text-primary" /></span>
+                    <p className="text-xs font-medium leading-tight text-primary">Add New</p>
+                  </Card>
+                )}
               </div>
             </ScrollArea>
             {errors.category && (
@@ -312,43 +327,42 @@ const AddExpense = ({
             )}
           </div>
 
-          {/* Subcategory Selection with inline add for Freemium */}
-          {category && (availableSubcategories.length > 0 || isFreemium) && (
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Subcategory (optional)
-              </label>
-              <Select
-                value={subcategory || ""}
-                onValueChange={(value) => {
-                  if (value === "__add_new__") {
-                    setShowAddSubcategoryDialog(true);
-                  } else {
-                    setSubcategory(value || null);
-                  }
-                }}
-              >
-                <SelectTrigger className="rounded-xl h-12">
-                  <SelectValue placeholder="Select subcategory" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border border-border max-h-[250px]">
-                  {availableSubcategories.map((sub) => (
-                    <SelectItem key={sub.id} value={sub.id}>
-                      {sub.label}
-                    </SelectItem>
-                  ))}
-                  {isFreemium && onAddSubcategory && (
-                    <SelectItem value="__add_new__" className="text-primary font-medium">
-                      <span className="flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
-                        Add Subcategory
-                      </span>
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Subcategory Selection - always visible, disabled when no category */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Subcategory (optional)
+            </label>
+            <Select
+              value={subcategory || ""}
+              onValueChange={(value) => {
+                if (value === "__add_new__") {
+                  setShowAddSubcategoryDialog(true);
+                } else {
+                  setSubcategory(value || null);
+                }
+              }}
+              disabled={!category}
+            >
+              <SelectTrigger className={cn("rounded-xl h-12", !category && "opacity-50 cursor-not-allowed")}>
+                <SelectValue placeholder={!category ? "Select a category first" : "Select subcategory"} />
+              </SelectTrigger>
+              <SelectContent className="bg-background border border-border max-h-[250px]">
+                {availableSubcategories.map((sub) => (
+                  <SelectItem key={sub.id} value={sub.id}>
+                    {sub.label}
+                  </SelectItem>
+                ))}
+                {isFreemium && onAddSubcategory && category && (
+                  <SelectItem value="__add_new__" className="text-primary font-medium">
+                    <span className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Subcategory
+                    </span>
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Purpose Selection with inline add for Freemium */}
           {showPurposeSection && (
@@ -513,6 +527,58 @@ const AddExpense = ({
               disabled={!newPurposeName.trim()}
             >
               Add Purpose
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Category Dialog */}
+      <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
+        <DialogContent className="max-w-[90%] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">Add Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Category Name
+              </label>
+              <Input
+                placeholder="e.g., Entertainment"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="rounded-xl"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Icon (emoji)
+              </label>
+              <Input
+                placeholder="📁"
+                value={newCategoryIcon}
+                onChange={(e) => setNewCategoryIcon(e.target.value)}
+                className="rounded-xl text-2xl text-center"
+                maxLength={4}
+              />
+            </div>
+            <Button
+              className="w-full rounded-xl h-12 font-semibold"
+              onClick={() => {
+                if (!newCategoryName.trim() || !onAddCategory) return;
+                onAddCategory(newCategoryName.trim(), newCategoryIcon);
+                toast({
+                  title: "Category added",
+                  description: `"${newCategoryName.trim()}" has been created`,
+                });
+                setNewCategoryName("");
+                setNewCategoryIcon("📁");
+                setShowAddCategoryDialog(false);
+              }}
+              disabled={!newCategoryName.trim()}
+            >
+              Add Category
             </Button>
           </div>
         </DialogContent>

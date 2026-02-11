@@ -54,6 +54,7 @@ interface ExpenseListProps {
   customSubcategories?: Record<string, { id: string; label: string; icon: string }[]>;
   purposes?: Array<{ id: string; label: string; createdAt: Date }>;
   canUseMultipleCurrencies?: boolean;
+  isFreemium?: boolean;
 }
 
 type FilterType = "today" | "week" | "month" | "all";
@@ -79,6 +80,7 @@ const ExpenseList = ({
   customSubcategories = {},
   purposes = [],
   canUseMultipleCurrencies = true,
+  isFreemium = false,
 }: ExpenseListProps) => {
 const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
@@ -679,15 +681,13 @@ const [searchQuery, setSearchQuery] = useState("");
                 </div>
               </ScrollArea>
             </div>
-            {editSubcategories.length > 0 && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">Subcategory</label>
-                <Select value={editSubcategory} onValueChange={setEditSubcategory}>
-                  <SelectTrigger className="rounded-xl h-10"><SelectValue placeholder="Select subcategory" /></SelectTrigger>
-                  <SelectContent className="bg-background border border-border">{editSubcategories.map((sub) => (<SelectItem key={sub.id} value={sub.id}>{sub.label}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">Subcategory</label>
+              <Select value={editSubcategory} onValueChange={setEditSubcategory} disabled={editSubcategories.length === 0}>
+                <SelectTrigger className={cn("rounded-xl h-10", editSubcategories.length === 0 && "opacity-50 cursor-not-allowed")}><SelectValue placeholder={editSubcategories.length === 0 ? "Select a category first" : "Select subcategory"} /></SelectTrigger>
+                <SelectContent className="bg-background border border-border">{editSubcategories.map((sub) => (<SelectItem key={sub.id} value={sub.id}>{sub.label}</SelectItem>))}</SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">Date</label>
@@ -701,22 +701,25 @@ const [searchQuery, setSearchQuery] = useState("");
                 <div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="pl-10 h-10 rounded-xl" /></div>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">Purpose (Optional)</label>
-              <Select value={editPurposeId || "none"} onValueChange={(v) => setEditPurposeId(v === "none" ? "" : v)}>
-                <SelectTrigger className="rounded-xl h-10">
-                  <SelectValue placeholder="Select purpose" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border border-border z-50">
-                  <SelectItem value="none">No Purpose</SelectItem>
-                  {purposes.map((purpose) => (
-                    <SelectItem key={purpose.id} value={purpose.id}>
-                      {purpose.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Only show purpose if user is freemium OR expense already has a purposeId */}
+            {(isFreemium || editingExpense?.purposeId) && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">Purpose (Optional)</label>
+                <Select value={editPurposeId || "none"} onValueChange={(v) => setEditPurposeId(v === "none" ? "" : v)}>
+                  <SelectTrigger className="rounded-xl h-10">
+                    <SelectValue placeholder="Select purpose" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border z-50">
+                    <SelectItem value="none">No Purpose</SelectItem>
+                    {purposes.map((purpose) => (
+                      <SelectItem key={purpose.id} value={purpose.id}>
+                        {purpose.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Notes</label>
               <Textarea placeholder="Add a note..." value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="rounded-xl resize-none" rows={2} />
