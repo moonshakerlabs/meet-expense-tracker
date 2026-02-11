@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, ChevronDown } from "lucide-react";
+import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, ChevronDown, Calculator } from "lucide-react";
+import MiniCalculator from "@/components/MiniCalculator";
 import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
 import { format, isToday, isYesterday, isSameMonth, isSameYear, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -138,6 +139,7 @@ const [searchQuery, setSearchQuery] = useState("");
   const [editPurposeId, setEditPurposeId] = useState<string>("");
   
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // The context date for filtering - defaults to current date if not provided
   const contextDate = selectedDate || new Date();
@@ -633,7 +635,14 @@ const [searchQuery, setSearchQuery] = useState("");
 
       <Dialog open={!!editingExpense} onOpenChange={(open) => !open && setEditingExpense(null)}>
         <DialogContent className="max-w-[90%] rounded-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-display">Edit Expense</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="font-display">Edit Expense</DialogTitle>
+              <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setShowCalculator(true)}>
+                <Calculator className="w-5 h-5" />
+              </Button>
+            </div>
+          </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">Amount</label>
@@ -741,6 +750,8 @@ const [searchQuery, setSearchQuery] = useState("");
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MiniCalculator open={showCalculator} onOpenChange={setShowCalculator} />
     </div>
   );
 };
