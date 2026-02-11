@@ -2,7 +2,8 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu, Clock } from "lucide-react";
+import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu, Clock, Calculator } from "lucide-react";
+import MiniCalculator from "@/components/MiniCalculator";
 import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencySavings, RecurringExpense } from "@/types/expense";
 import {
   Select,
@@ -112,6 +113,7 @@ const Dashboard = ({
   const [viewMode, setViewMode] = useState<"monthly" | "yearly" | "purpose">("monthly");
   const [expandedCurrencies, setExpandedCurrencies] = useState<Record<string, boolean>>({});
   const [expandedMonths, setExpandedMonths] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   
   // Inline add category dialog state
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
@@ -422,6 +424,14 @@ const Dashboard = ({
             <h1 className="font-display font-bold text-2xl">Dashboard</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl"
+              onClick={() => setShowCalculator(true)}
+            >
+              <Calculator className="w-5 h-5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -1028,6 +1038,8 @@ const Dashboard = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      <MiniCalculator open={showCalculator} onOpenChange={setShowCalculator} />
     </div>
   );
 };

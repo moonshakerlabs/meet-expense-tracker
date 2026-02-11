@@ -23,7 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Category, CategoryId, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES, Purpose } from "@/types/expense";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Clock, Plus } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, Clock, Plus, Calculator } from "lucide-react";
+import MiniCalculator from "@/components/MiniCalculator";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -95,7 +96,7 @@ const AddExpense = ({
   const [newPurposeName, setNewPurposeName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryIcon, setNewCategoryIcon] = useState("📁");
-
+  const [showCalculator, setShowCalculator] = useState(false);
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, "");
     const parts = cleaned.split(".");
@@ -224,7 +225,15 @@ const AddExpense = ({
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="font-display font-bold text-xl">Add Expense</h1>
+          <h1 className="font-display font-bold text-xl flex-1">Add Expense</h1>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-xl"
+            onClick={() => setShowCalculator(true)}
+          >
+            <Calculator className="w-5 h-5" />
+          </Button>
         </div>
       </div>
 
@@ -583,6 +592,8 @@ const AddExpense = ({
           </div>
         </DialogContent>
       </Dialog>
+
+      <MiniCalculator open={showCalculator} onOpenChange={setShowCalculator} />
     </div>
   );
 };
