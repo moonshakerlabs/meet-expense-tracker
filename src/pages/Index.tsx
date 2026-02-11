@@ -311,6 +311,9 @@ const Index = () => {
             };
             addPurpose(newPurpose);
           }}
+          onAddCategory={(label, icon) => {
+            addCustomCategory({ id: `custom_cat_${Date.now()}`, label, icon });
+          }}
         />
       )}
 
@@ -404,6 +407,7 @@ const Index = () => {
           customSubcategories={settings.customSubcategories}
           purposes={settings.purposes}
           canUseMultipleCurrencies={featureAccess.useMultipleCurrencies}
+          isFreemium={featureAccess.managePurposes}
         />
       )}
 
