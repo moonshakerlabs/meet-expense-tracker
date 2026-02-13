@@ -28,7 +28,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, Plus, CalendarClock, Trash2, Power, CalendarIcon } from "lucide-react";
-import { RecurringExpense, Category, FrequencyUnit, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS } from "@/types/expense";
+import { RecurringExpense, Category, FrequencyUnit, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, Purpose } from "@/types/expense";
 import { formatFrequency } from "@/hooks/useRecurringExpenses";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -38,6 +38,7 @@ interface RecurringExpensesPanelProps {
   recurringExpenses: RecurringExpense[];
   formatCurrency: (amount: number) => string;
   currencySymbol: string;
+  currency: string;
   onAdd: (data: {
     name: string;
     amount: number;
@@ -46,12 +47,18 @@ interface RecurringExpensesPanelProps {
     frequencyValue: number;
     frequencyUnit: FrequencyUnit;
     startDate: Date;
+    currency?: string;
+    currencySymbol?: string;
+    purposeId?: string;
+    stopAfter?: number;
   }) => void;
   onUpdate: (id: string, data: Partial<RecurringExpense>) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string) => void;
   getExpectedMonthlyTotal: () => number;
   onBack: () => void;
+  purposes?: Purpose[];
+  isFreemium?: boolean;
 }
 
 const FREQUENCY_PRESETS = [
@@ -65,12 +72,15 @@ const RecurringExpensesPanel = ({
   recurringExpenses,
   formatCurrency,
   currencySymbol,
+  currency,
   onAdd,
   onUpdate,
   onDelete,
   onToggleActive,
   getExpectedMonthlyTotal,
   onBack,
+  purposes = [],
+  isFreemium = false,
 }: RecurringExpensesPanelProps) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -81,6 +91,10 @@ const RecurringExpensesPanel = ({
   const [frequencyValue, setFrequencyValue] = useState("1");
   const [frequencyUnit, setFrequencyUnit] = useState<FrequencyUnit>("months");
   const [startDate, setStartDate] = useState<Date>(new Date());
+  const [selectedCurrency, setSelectedCurrency] = useState(currency);
+  const [selectedCurrencySymbol, setSelectedCurrencySymbol] = useState(currencySymbol);
+  const [purposeId, setPurposeId] = useState<string>("");
+  const [stopAfter, setStopAfter] = useState("");
 
   const expectedTotal = getExpectedMonthlyTotal();
   const activeCount = recurringExpenses.filter((r) => r.isActive).length;
@@ -117,6 +131,10 @@ const RecurringExpensesPanel = ({
     setFrequencyValue("1");
     setFrequencyUnit("months");
     setStartDate(new Date());
+    setSelectedCurrency(currency);
+    setSelectedCurrencySymbol(currencySymbol);
+    setPurposeId("");
+    setStopAfter("");
   };
 
   const handleSave = () => {
@@ -139,6 +157,10 @@ const RecurringExpensesPanel = ({
       frequencyValue: freqValue,
       frequencyUnit,
       startDate,
+      currency: selectedCurrency,
+      currencySymbol: selectedCurrencySymbol,
+      purposeId: purposeId || undefined,
+      stopAfter: stopAfter ? parseInt(stopAfter) : undefined,
     });
 
     toast({
@@ -446,6 +468,79 @@ const RecurringExpensesPanel = ({
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Stop After */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                Stop After (optional)
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="∞"
+                  value={stopAfter}
+                  onChange={(e) => setStopAfter(e.target.value)}
+                  className="rounded-xl w-24 text-center"
+                />
+                <span className="text-sm text-muted-foreground">times</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Leave empty for unlimited</p>
+            </div>
+
+            {/* Currency (Freemium only) */}
+            {isFreemium && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  Currency
+                </label>
+                <Select value={selectedCurrency} onValueChange={(code) => {
+                  const curr = CURRENCIES.find((c) => c.code === code);
+                  if (curr) {
+                    setSelectedCurrency(curr.code);
+                    setSelectedCurrencySymbol(curr.symbol);
+                  }
+                }}>
+                  <SelectTrigger className="rounded-xl h-12">
+                    <SelectValue>
+                      <span className="font-semibold">{selectedCurrency}</span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border max-h-[250px]">
+                    {CURRENCIES.map((curr) => (
+                      <SelectItem key={curr.code} value={curr.code}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold">{curr.symbol}</span>
+                          <span className="text-muted-foreground">{curr.code}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Purpose */}
+            {purposes.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                  Purpose (optional)
+                </label>
+                <Select value={purposeId || "none"} onValueChange={(v) => setPurposeId(v === "none" ? "" : v)}>
+                  <SelectTrigger className="rounded-xl h-12">
+                    <SelectValue placeholder="Select purpose" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border max-h-[250px]">
+                    <SelectItem value="none">No purpose</SelectItem>
+                    {purposes.map((purpose) => (
+                      <SelectItem key={purpose.id} value={purpose.id}>
+                        🎯 {purpose.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Save Button */}
             <Button

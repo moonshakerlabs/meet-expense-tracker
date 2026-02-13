@@ -34,7 +34,7 @@ const UpdateAvailableDialog = ({
             <AlertDialogTitle className="text-xl">Update Available</AlertDialogTitle>
           </div>
           <AlertDialogDescription className="text-base">
-            A new version of MEET is available. Update now to get the latest features and improvements.
+            Update the app for a great experience with the latest features and improvements.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">

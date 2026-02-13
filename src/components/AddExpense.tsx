@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Category, CategoryId, Subcategory, CATEGORIES, SUBCATEGORIES, CURRENCIES, Purpose } from "@/types/expense";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Clock, Plus, Calculator } from "lucide-react";
+import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, Calculator } from "lucide-react";
 import MiniCalculator from "@/components/MiniCalculator";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -79,7 +79,7 @@ const AddExpense = ({
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
   const [date, setDate] = useState<Date>(new Date());
-  const [time, setTime] = useState(format(new Date(), "HH:mm"));
+  
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<{ amount?: string; category?: string }>({});
   const [purposeId, setPurposeId] = useState<string | null>(null);
@@ -174,9 +174,8 @@ const AddExpense = ({
   const handleSubmit = () => {
     if (!validate()) return;
 
-    const [hours, minutes] = time.split(":").map(Number);
     const expenseDate = new Date(date);
-    expenseDate.setHours(hours, minutes, 0, 0);
+    expenseDate.setHours(12, 0, 0, 0);
 
     onSave({
       amount: parseFloat(amount),
@@ -412,46 +411,30 @@ const AddExpense = ({
             </div>
           )}
 
-          {/* Date & Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Date
-              </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal rounded-xl h-12"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, "MMM d, yyyy")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-background border border-border" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => d && setDate(d)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                Time
-              </label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="pl-10 h-12 rounded-xl"
+          {/* Date */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">
+              Date
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal rounded-xl h-12"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(date, "MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-background border border-border" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(d) => d && setDate(d)}
+                  initialFocus
                 />
-              </div>
-            </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Notes */}

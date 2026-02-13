@@ -293,52 +293,7 @@ const SettingsPanel = ({
           </Card>
         </div>
 
-        {/* App Update - Only on Android */}
-        {isNativeAndroid && (
-          <div>
-            <Card className="rounded-2xl overflow-hidden">
-              <button
-                className={`w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors ${
-                  updateAvailable ? "bg-gradient-to-r from-blue-500/5 to-cyan-500/5" : ""
-                }`}
-                onClick={updateAvailable ? handleStartUpdate : handleCheckForUpdate}
-                disabled={isCheckingUpdate || isUpdating}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    updateAvailable 
-                      ? "bg-gradient-to-br from-blue-500 to-cyan-500" 
-                      : "bg-secondary"
-                  }`}>
-                    {isCheckingUpdate || isUpdating ? (
-                      <RefreshCw className={`w-5 h-5 ${updateAvailable ? "text-white" : ""} animate-spin`} />
-                    ) : (
-                      <Download className={`w-5 h-5 ${updateAvailable ? "text-white" : ""}`} />
-                    )}
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium">
-                      {updateAvailable ? "Update Available" : "Check for Updates"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {isCheckingUpdate 
-                        ? "Checking..." 
-                        : isUpdating 
-                        ? "Downloading..."
-                        : updateAvailable 
-                        ? "Tap to download & install" 
-                        : "Get the latest version"
-                      }
-                    </p>
-                  </div>
-                </div>
-                {updateAvailable && !isUpdating && (
-                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                )}
-              </button>
-            </Card>
-          </div>
-        )}
+        {/* App Update section removed - updates are now checked automatically on launch */}
 
         {/* Profile */}
         <div>

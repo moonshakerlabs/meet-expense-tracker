@@ -194,17 +194,15 @@ export const useAppUpdate = () => {
   }, [isNativeAndroid, getPlugin]);
 
   // Check for updates on mount (only once)
-  // TEMPORARILY DISABLED to debug billing
   useEffect(() => {
-    // Disabled for now
-    // if (isNativeAndroid && !hasCheckedRef.current) {
-    //   hasCheckedRef.current = true;
-    //   const timer = setTimeout(() => {
-    //     console.log("[AppUpdate] Initial update check on mount");
-    //     checkForUpdate(true);
-    //   }, 3000);
-    //   return () => clearTimeout(timer);
-    // }
+    if (isNativeAndroid && !hasCheckedRef.current) {
+      hasCheckedRef.current = true;
+      const timer = setTimeout(() => {
+        console.log("[AppUpdate] Initial update check on mount");
+        checkForUpdate(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
   }, [isNativeAndroid]);
 
   return {
