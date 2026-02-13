@@ -20,7 +20,7 @@ import { Category, CATEGORIES, CustomCategory } from "@/types/expense";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
-const EMOJI_OPTIONS = ["📌", "🎯", "⭐", "💎", "🔥", "🌟", "💫", "🎨", "🎭", "🎪", "🎬", "🎵", "🎮", "🎲", "🏋️", "🧘", "🏊", "🚴", "🍕", "🍜", "☕", "🍷"];
+const EMOJI_OPTIONS = ["💰", "🏛️", "🛡️", "🎓", "🍔", "🏥", "🚗", "🏠", "📱", "⚡", "💳", "🛒", "✈️", "🎯", "📌", "⭐", "💎", "🔥", "🐾", "👶", "🎮", "🏋️"];
 
 interface CategoryManagerProps {
   customCategories: CustomCategory[];

@@ -293,13 +293,6 @@ const FinanceMenu = ({
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
-            <button className="w-full p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors" onClick={onViewIncome}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center"><DollarSign className="w-5 h-5 text-teal-500" /></div>
-                <div className="text-left"><p className="font-medium">Income by Category</p><p className="text-sm text-muted-foreground">Track income categories</p></div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </button>
           </Card>
         </div>
 

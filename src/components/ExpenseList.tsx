@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Clock, Check, ChevronDown, Calculator } from "lucide-react";
+import { ArrowLeft, Search, Receipt, Pencil, Trash2, Calendar as CalendarIcon, Check, ChevronDown, Calculator } from "lucide-react";
 import MiniCalculator from "@/components/MiniCalculator";
 import { Expense, CATEGORIES, SUBCATEGORIES, CATEGORY_COLORS, CURRENCIES, CategoryId, Category, Purpose } from "@/types/expense";
 import { format, isToday, isYesterday, isSameMonth, isSameYear, startOfDay } from "date-fns";
@@ -96,6 +96,7 @@ const [searchQuery, setSearchQuery] = useState("");
   });
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [currencyFilter, setCurrencyFilter] = useState<string>("all");
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
 
   // Toggle category selection
   const toggleCategorySelection = (categoryId: string) => {
@@ -132,7 +133,7 @@ const [searchQuery, setSearchQuery] = useState("");
   const [editCategory, setEditCategory] = useState<CategoryId | null>(null);
   const [editSubcategory, setEditSubcategory] = useState<string>("");
   const [editDate, setEditDate] = useState<Date>(new Date());
-  const [editTime, setEditTime] = useState("12:00");
+  
   const [editNotes, setEditNotes] = useState("");
   const [editCurrency, setEditCurrency] = useState("");
   const [editCurrencySymbol, setEditCurrencySymbol] = useState("");
@@ -153,7 +154,7 @@ const [searchQuery, setSearchQuery] = useState("");
     setEditSubcategory(expense.subcategory || "");
     const expDate = new Date(expense.date);
     setEditDate(expDate);
-    setEditTime(format(expDate, "HH:mm"));
+    
     setEditNotes(expense.notes || "");
     setEditCurrency(expense.currency || defaultCurrency);
     setEditCurrencySymbol(expense.currencySymbol || currencySymbol);
@@ -171,9 +172,8 @@ const [searchQuery, setSearchQuery] = useState("");
   const handleEditSave = () => {
     if (!editingExpense || !editCategory || !editAmount) return;
     
-    const [hours, minutes] = editTime.split(":").map(Number);
     const expenseDate = new Date(editDate);
-    expenseDate.setHours(hours, minutes, 0, 0);
+    expenseDate.setHours(12, 0, 0, 0);
     
     onUpdateExpense(editingExpense.id, {
       amount: parseFloat(editAmount),
@@ -482,9 +482,24 @@ const [searchQuery, setSearchQuery] = useState("");
                   {selectedCategories.size === allCategories.length ? "Deselect All" : "Select All"}
                 </Button>
               </div>
-              <ScrollArea className="max-h-[250px]">
+              {/* Search field */}
+              <div className="px-3 py-2 border-b border-border">
+                <Input 
+                  placeholder="Search categories..." 
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  className="h-8 text-sm rounded-lg"
+                />
+              </div>
+              <ScrollArea className="h-[250px]">
                 <div className="p-2 space-y-0.5">
-                  {allCategories.map((cat) => {
+                  {allCategories
+                    .filter((cat) => {
+                      if (!categorySearchQuery.trim()) return true;
+                      const query = categorySearchQuery.toLowerCase();
+                      return cat.label.toLowerCase().includes(query) || cat.icon.includes(query);
+                    })
+                    .map((cat) => {
                     const isSelected = selectedCategories.has(cat.id);
                     return (
                       <div 
@@ -697,18 +712,12 @@ const [searchQuery, setSearchQuery] = useState("");
                 <SelectContent className="bg-background border border-border">{editSubcategories.map((sub) => (<SelectItem key={sub.id} value={sub.id}>{sub.label}</SelectItem>))}</SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">Date</label>
-                <Popover>
-                  <PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl h-10"><CalendarIcon className="mr-2 h-4 w-4" />{format(editDate, "MMM d")}</Button></PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-background border border-border" align="start"><Calendar mode="single" selected={editDate} onSelect={(d) => d && setEditDate(d)} initialFocus /></PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">Time</label>
-                <div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="pl-10 h-10 rounded-xl" /></div>
-              </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">Date</label>
+              <Popover>
+                <PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal rounded-xl h-10"><CalendarIcon className="mr-2 h-4 w-4" />{format(editDate, "MMM d, yyyy")}</Button></PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background border border-border" align="start"><Calendar mode="single" selected={editDate} onSelect={(d) => d && setEditDate(d)} initialFocus /></PopoverContent>
+              </Popover>
             </div>
             {/* Only show purpose if user is freemium OR expense already has a purposeId */}
             {(isFreemium || editingExpense?.purposeId) && (

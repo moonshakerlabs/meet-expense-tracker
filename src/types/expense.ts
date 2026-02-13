@@ -68,6 +68,14 @@ export interface RecurringExpense {
   lastGenerated?: Date;
   // Legacy field for backward compatibility
   dayOfMonth?: number;
+  // Multi-currency support
+  currency?: string;
+  currencySymbol?: string;
+  // Purpose tag
+  purposeId?: string;
+  // Stop after N occurrences (undefined = infinite)
+  stopAfter?: number;
+  generatedCount?: number;
 }
 
 export interface CustomCategory {

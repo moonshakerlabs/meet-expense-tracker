@@ -459,12 +459,17 @@ const Index = () => {
           recurringExpenses={recurringExpenses}
           formatCurrency={formatCurrency}
           currencySymbol={settings.currencySymbol}
-          onAdd={addRecurringExpense}
+          currency={settings.currency}
+          onAdd={(data) => {
+            addRecurringExpense(data);
+          }}
           onUpdate={updateRecurringExpense}
           onDelete={deleteRecurringExpense}
           onToggleActive={toggleActive}
           getExpectedMonthlyTotal={getExpectedMonthlyTotal}
           onBack={() => setCurrentView("finance-menu")}
+          purposes={featureAccess.assignPurposeToExpenses ? settings.purposes : []}
+          isFreemium={featureAccess.useMultipleCurrencies}
         />
       )}
 

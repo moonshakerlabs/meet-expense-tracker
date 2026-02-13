@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, TrendingUp, Receipt, ArrowUpRight, Settings, ChevronLeft, ChevronRight, PiggyBank, ChevronDown, ChevronUp, CalendarDays, Menu, Clock, Calculator } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import MiniCalculator from "@/components/MiniCalculator";
 import { Expense, CATEGORIES, Category, CATEGORY_COLORS, SUBCATEGORIES, CurrencySavings, RecurringExpense } from "@/types/expense";
 import {
@@ -396,19 +397,19 @@ const Dashboard = ({
         // Mark as processed first to prevent duplicates
         processedRecurringRef.current.add(processKey);
         
-        // Add as regular expense
+        // Add as regular expense using recurring's own currency or fallback to default
         onAddExpenseFromRecurring({
           amount: r.amount,
           category: r.category,
           subcategory: r.subcategory,
           notes: `${r.name} (Recurring)`,
           date: new Date(r.nextDueDate),
-          currency: defaultCurrency,
-          currencySymbol: defaultCurrencySymbol,
+          currency: r.currency || defaultCurrency,
+          currencySymbol: r.currencySymbol || defaultCurrencySymbol,
           recurringId: r.id,
         });
         
-        // Mark as generated (this will update nextDueDate)
+        // Mark as generated (this will update nextDueDate and handle stopAfter)
         onMarkRecurringAsGenerated(r.id);
       }
     });
@@ -581,49 +582,31 @@ const Dashboard = ({
         {viewMode === "yearly" && monthlyBreakdown.length > 0 && (
           <Card className="p-5 rounded-2xl mb-4">
             <h3 className="font-semibold mb-4">Monthly Breakdown</h3>
-            <div className="space-y-2">
-              {(expandedMonths ? monthlyBreakdown : monthlyBreakdown.slice(0, 4)).map((item) => (
-                <div
-                  key={item.month}
-                  className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
-                  onClick={() => handleViewMonth(item.month)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-primary">{item.monthName.slice(0, 3)}</span>
+            <ScrollArea className="max-h-[400px]">
+              <div className="space-y-2">
+                {monthlyBreakdown.map((item) => (
+                  <div
+                    key={item.month}
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-secondary/50 cursor-pointer transition-colors"
+                    onClick={() => handleViewMonth(item.month)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-primary">{item.monthName.slice(0, 3)}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{item.monthName}</p>
+                        <p className="text-xs text-muted-foreground">{item.count} transactions</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{item.monthName}</p>
-                      <p className="text-xs text-muted-foreground">{item.count} transactions</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{formatCurrency(item.total)}</p>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold">{formatCurrency(item.total)}</p>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            {monthlyBreakdown.length > 4 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-3 text-muted-foreground hover:text-foreground"
-                onClick={() => setExpandedMonths(!expandedMonths)}
-              >
-                {expandedMonths ? (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-1" />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-1" />
-                    +{monthlyBreakdown.length - 4} more months
-                  </>
-                )}
-              </Button>
-            )}
+                ))}
+              </div>
+            </ScrollArea>
           </Card>
         )}
 
@@ -796,16 +779,6 @@ const Dashboard = ({
           <Card className="p-5 rounded-2xl mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Spending by Category</h3>
-              {isFreemium && onAddCategory && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 rounded-lg"
-                  onClick={() => setShowAddCategoryDialog(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              )}
             </div>
             
             <Carousel className="w-full">

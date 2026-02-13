@@ -108,6 +108,10 @@ export const useRecurringExpenses = () => {
       frequencyValue: number;
       frequencyUnit: FrequencyUnit;
       startDate: Date;
+      currency?: string;
+      currencySymbol?: string;
+      purposeId?: string;
+      stopAfter?: number;
     }): RecurringExpense => {
       const newRecurring: RecurringExpense = {
         id: generateId(),
@@ -121,6 +125,11 @@ export const useRecurringExpenses = () => {
         nextDueDate: data.startDate,
         isActive: true,
         createdAt: new Date(),
+        currency: data.currency,
+        currencySymbol: data.currencySymbol,
+        purposeId: data.purposeId,
+        stopAfter: data.stopAfter,
+        generatedCount: 0,
       };
       setRecurringExpenses((prev) => [newRecurring, ...prev]);
       return newRecurring;
@@ -156,10 +165,15 @@ export const useRecurringExpenses = () => {
             r.frequencyValue,
             r.frequencyUnit
           );
+          const newCount = (r.generatedCount || 0) + 1;
+          // If stopAfter is set and we've reached the limit, deactivate
+          const shouldDeactivate = r.stopAfter && newCount >= r.stopAfter;
           return {
             ...r,
             lastGenerated: new Date(),
             nextDueDate: newNextDueDate,
+            generatedCount: newCount,
+            isActive: shouldDeactivate ? false : r.isActive,
           };
         }
         return r;
