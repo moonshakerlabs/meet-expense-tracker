@@ -219,9 +219,46 @@ const Index = () => {
 
   if (!settings.hasCompletedOnboarding) {
     return (
-      <Onboarding 
-        onComplete={(newSettings: Partial<UserSettings>) => updateSettings(newSettings)} 
+      <Onboarding
+        onComplete={(newSettings: Partial<UserSettings>) => updateSettings(newSettings)}
         onAcknowledgeData={acknowledgeDataProtection}
+        onMigrateFromConfig={(config) => {
+          // Build full settings update from config
+          import("@/lib/configExport").then(({ buildSettingsUpdatesFromConfig }) => {
+            const updates = buildSettingsUpdatesFromConfig(config, settings);
+            updateSettings({
+              ...updates,
+              hasCompletedOnboarding: true,
+              hasSeenAppTour: true,
+            });
+            // Import recurring data
+            config.recurringExpenses.forEach((exp) => {
+              addRecurringExpense({
+                name: exp.name,
+                amount: exp.amount,
+                category: exp.category as Category,
+                subcategory: exp.subcategory,
+                frequencyValue: exp.frequencyValue,
+                frequencyUnit: exp.frequencyUnit,
+                startDate: exp.startDate,
+              });
+            });
+            config.recurringIncomes.forEach((inc) => {
+              addIncome({
+                amount: inc.amount,
+                source: inc.source,
+                date: inc.date,
+                notes: inc.notes,
+                isRecurring: inc.isRecurring,
+                recurringDay: inc.recurringDay,
+                autoUpdateMonths: inc.autoUpdateMonths,
+                autoUpdateEndDate: inc.autoUpdateEndDate,
+                isActive: inc.isActive,
+              });
+            });
+            acknowledgeDataProtection();
+          });
+        }}
       />
     );
   }

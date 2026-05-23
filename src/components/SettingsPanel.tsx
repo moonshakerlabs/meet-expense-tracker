@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { SubscriptionTier } from "@/types/subscription";
 import { useAppUpdate } from "@/hooks/useAppUpdate";
-import { exportConfiguration, parseConfigurationImport, deduplicateConfig, countConfigItems, AppConfiguration } from "@/lib/configExport";
+import { exportConfiguration, parseConfigurationImport, deduplicateConfig, countConfigItems, buildSettingsUpdatesFromConfig, AppConfiguration } from "@/lib/configExport";
 
 interface SettingsPanelProps {
   settings: UserSettings;
@@ -207,16 +207,8 @@ const SettingsPanel = ({
 
     const counts = countConfigItems(pendingConfig);
 
-    // Update settings with imported config
-    const settingsUpdates: Partial<UserSettings> = {
-      customCategories: [...settings.customCategories, ...pendingConfig.customCategories],
-      customSubcategories: pendingConfig.customSubcategories,
-      purposes: [...(settings.purposes || []), ...pendingConfig.purposes],
-      customIncomeSources: [...settings.customIncomeSources, ...pendingConfig.customIncomeSources],
-      currencyIncomes: [...(settings.currencyIncomes || []), ...pendingConfig.currencyIncomes],
-      currencySavings: [...(settings.currencySavings || []), ...pendingConfig.currencySavings],
-    };
-
+    // Build full settings updates (currency, country, theme, dashboard prefs, etc.)
+    const settingsUpdates = buildSettingsUpdatesFromConfig(pendingConfig, settings);
     onUpdateSettings(settingsUpdates);
 
     // Import recurring expenses
@@ -231,7 +223,7 @@ const SettingsPanel = ({
 
     const importedCount = Object.values(counts).reduce((a, b) => a + b, 0);
     toast.success("Configuration imported", {
-      description: `${importedCount} item${importedCount !== 1 ? "s" : ""} imported successfully.`,
+      description: `${importedCount} item${importedCount !== 1 ? "s" : ""} imported. Currency, country and preferences applied.`,
     });
 
     setPendingConfig(null);

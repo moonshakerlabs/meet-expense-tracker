@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -88,9 +89,11 @@ const ExportReportsDialog = ({
 }: ExportReportsDialogProps) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [scope, setScope] = useState<ExportScope | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  // Multi-select state
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([new Date().getMonth()]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedPurposeId, setSelectedPurposeId] = useState<string>("");
+  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+  const [selectedPurposeIds, setSelectedPurposeIds] = useState<string[]>([]);
   const [format, setFormat] = useState<ExportFormat | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showCSVWarning, setShowCSVWarning] = useState(false);
@@ -141,9 +144,10 @@ const ExportReportsDialog = ({
   const resetDialog = () => {
     setStep(1);
     setScope(null);
-    setSelectedMonth(new Date().getMonth());
+    setSelectedMonths([new Date().getMonth()]);
     setSelectedYear(new Date().getFullYear());
-    setSelectedPurposeId("");
+    setSelectedYears([new Date().getFullYear()]);
+    setSelectedPurposeIds([]);
     setFormat(null);
     setPdfOptions({
       includePieChart: true,
@@ -158,6 +162,9 @@ const ExportReportsDialog = ({
     }
   };
 
+  const toggleInArray = <T,>(arr: T[], value: T): T[] =>
+    arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       resetDialog();
@@ -166,33 +173,36 @@ const ExportReportsDialog = ({
   };
 
   const getFilteredExpenses = (): Expense[] => {
-    let filtered = expenses;
-
     if (scope === "month") {
-      filtered = expenses.filter(exp => {
+      return expenses.filter((exp) => {
         const date = new Date(exp.date);
-        return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+        return (
+          date.getFullYear() === selectedYear &&
+          selectedMonths.includes(date.getMonth())
+        );
       });
     } else if (scope === "year") {
-      filtered = expenses.filter(exp => {
-        const date = new Date(exp.date);
-        return date.getFullYear() === selectedYear;
-      });
-    } else if (scope === "purpose" && selectedPurposeId) {
-      filtered = expenses.filter(exp => exp.purposeId === selectedPurposeId);
+      return expenses.filter((exp) =>
+        selectedYears.includes(new Date(exp.date).getFullYear())
+      );
+    } else if (scope === "purpose" && selectedPurposeIds.length > 0) {
+      return expenses.filter(
+        (exp) => exp.purposeId && selectedPurposeIds.includes(exp.purposeId)
+      );
     }
-
-    return filtered;
+    return expenses;
   };
 
   const getDateRange = (): { startDate?: Date; endDate?: Date } => {
-    if (scope === "month") {
-      const startDate = new Date(selectedYear, selectedMonth, 1);
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
+    if (scope === "month" && selectedMonths.length > 0) {
+      const sorted = [...selectedMonths].sort((a, b) => a - b);
+      const startDate = new Date(selectedYear, sorted[0], 1);
+      const endDate = new Date(selectedYear, sorted[sorted.length - 1] + 1, 0);
       return { startDate, endDate };
-    } else if (scope === "year") {
-      const startDate = new Date(selectedYear, 0, 1);
-      const endDate = new Date(selectedYear, 11, 31);
+    } else if (scope === "year" && selectedYears.length > 0) {
+      const sorted = [...selectedYears].sort((a, b) => a - b);
+      const startDate = new Date(sorted[0], 0, 1);
+      const endDate = new Date(sorted[sorted.length - 1], 11, 31);
       return { startDate, endDate };
     }
     return {};
@@ -201,9 +211,13 @@ const ExportReportsDialog = ({
   const getPDFExportOptions = () => {
     const filteredExpenses = getFilteredExpenses();
     const { startDate, endDate } = getDateRange();
-    const purposeName = scope === "purpose" 
-      ? purposes.find(p => p.id === selectedPurposeId)?.label 
-      : undefined;
+    const purposeName =
+      scope === "purpose"
+        ? purposes
+            .filter((p) => selectedPurposeIds.includes(p.id))
+            .map((p) => p.label)
+            .join(", ")
+        : undefined;
 
     return {
       expenses: filteredExpenses,
@@ -217,7 +231,7 @@ const ExportReportsDialog = ({
       customCategories,
       purposeName,
       scope,
-      selectedMonth,
+      selectedMonth: selectedMonths[0] ?? 0,
       selectedYear,
       pdfOptions,
     };
@@ -282,18 +296,26 @@ const ExportReportsDialog = ({
   const canProceedToStep2 = scope !== null;
   const canProceedToStep3 = (() => {
     if (!scope) return false;
-    if (scope === "purpose" && !selectedPurposeId) return false;
+    if (scope === "month" && selectedMonths.length === 0) return false;
+    if (scope === "year" && selectedYears.length === 0) return false;
+    if (scope === "purpose" && selectedPurposeIds.length === 0) return false;
     return true;
   })();
   const canExport = format !== null;
 
   const getScopeSummary = () => {
     if (scope === "month") {
-      return `${MONTHS[selectedMonth]} ${selectedYear}`;
+      const sorted = [...selectedMonths].sort((a, b) => a - b);
+      const names = sorted.map((m) => MONTHS[m]).join(", ");
+      return `${names} ${selectedYear}`;
     } else if (scope === "year") {
-      return `Year ${selectedYear}`;
-    } else if (scope === "purpose" && selectedPurposeId) {
-      return purposes.find(p => p.id === selectedPurposeId)?.label || "Purpose";
+      const sorted = [...selectedYears].sort((a, b) => a - b);
+      return sorted.length === 1 ? `Year ${sorted[0]}` : `Years ${sorted.join(", ")}`;
+    } else if (scope === "purpose" && selectedPurposeIds.length > 0) {
+      const labels = purposes
+        .filter((p) => selectedPurposeIds.includes(p.id))
+        .map((p) => p.label);
+      return labels.length === 1 ? labels[0] : `${labels.length} purposes`;
     }
     return "";
   };
@@ -440,26 +462,6 @@ const ExportReportsDialog = ({
                 <>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                      Month
-                    </label>
-                    <Select
-                      value={selectedMonth.toString()}
-                      onValueChange={(v) => setSelectedMonth(parseInt(v))}
-                    >
-                      <SelectTrigger className="rounded-xl h-12">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border border-border">
-                        {MONTHS.map((month, idx) => (
-                          <SelectItem key={idx} value={idx.toString()}>
-                            {month}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
                       Year
                     </label>
                     <Select
@@ -478,59 +480,159 @@ const ExportReportsDialog = ({
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Months ({selectedMonths.length} selected)
+                      </label>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setSelectedMonths(MONTHS.map((_, i) => i))}
+                        >
+                          Select all
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setSelectedMonths([])}
+                        >
+                          Deselect all
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {MONTHS.map((month, idx) => {
+                        const checked = selectedMonths.includes(idx);
+                        return (
+                          <Card
+                            key={idx}
+                            className={`p-3 cursor-pointer transition-all duration-200 ${
+                              checked ? "ring-2 ring-primary bg-primary/5" : "hover:bg-secondary"
+                            }`}
+                            onClick={() => setSelectedMonths(toggleInArray(selectedMonths, idx))}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Checkbox checked={checked} />
+                              <span className="text-sm font-medium">{month}</span>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </>
               )}
 
               {scope === "year" && (
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                    Year
-                  </label>
-                  <Select
-                    value={selectedYear.toString()}
-                    onValueChange={(v) => setSelectedYear(parseInt(v))}
-                  >
-                    <SelectTrigger className="rounded-xl h-12">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border border-border">
-                      {availableYears.map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Years ({selectedYears.length} selected)
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setSelectedYears(availableYears)}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setSelectedYears([])}
+                      >
+                        Deselect all
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableYears.map((year) => {
+                      const checked = selectedYears.includes(year);
+                      return (
+                        <Card
+                          key={year}
+                          className={`p-3 cursor-pointer transition-all duration-200 ${
+                            checked ? "ring-2 ring-primary bg-primary/5" : "hover:bg-secondary"
+                          }`}
+                          onClick={() => setSelectedYears(toggleInArray(selectedYears, year))}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Checkbox checked={checked} />
+                            <span className="text-sm font-medium">{year}</span>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
               {scope === "purpose" && (
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                    Purpose
-                  </label>
-                  <div className="space-y-2">
-                    {purposes.map((purpose) => (
-                      <Card
-                        key={purpose.id}
-                        className={`p-3 cursor-pointer transition-all duration-200 ${
-                          selectedPurposeId === purpose.id 
-                            ? "ring-2 ring-primary bg-primary/5" 
-                            : "hover:bg-secondary"
-                        }`}
-                        onClick={() => setSelectedPurposeId(purpose.id)}
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Purposes ({selectedPurposeIds.length} selected)
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setSelectedPurposeIds(purposes.map((p) => p.id))}
                       >
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{purpose.label}</p>
-                          {selectedPurposeId === purpose.id && (
-                            <Check className="w-5 h-5 text-primary" />
-                          )}
-                        </div>
-                      </Card>
-                    ))}
+                        Select all
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setSelectedPurposeIds([])}
+                      >
+                        Deselect all
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {purposes.map((purpose) => {
+                      const checked = selectedPurposeIds.includes(purpose.id);
+                      return (
+                        <Card
+                          key={purpose.id}
+                          className={`p-3 cursor-pointer transition-all duration-200 ${
+                            checked ? "ring-2 ring-primary bg-primary/5" : "hover:bg-secondary"
+                          }`}
+                          onClick={() =>
+                            setSelectedPurposeIds(toggleInArray(selectedPurposeIds, purpose.id))
+                          }
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Checkbox checked={checked} />
+                              <p className="font-medium">{purpose.label}</p>
+                            </div>
+                            {checked && <Check className="w-5 h-5 text-primary" />}
+                          </div>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
+
 
               <Button
                 className="w-full h-12 mt-4"
