@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -88,9 +89,11 @@ const ExportReportsDialog = ({
 }: ExportReportsDialogProps) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [scope, setScope] = useState<ExportScope | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  // Multi-select state
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([new Date().getMonth()]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedPurposeId, setSelectedPurposeId] = useState<string>("");
+  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+  const [selectedPurposeIds, setSelectedPurposeIds] = useState<string[]>([]);
   const [format, setFormat] = useState<ExportFormat | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showCSVWarning, setShowCSVWarning] = useState(false);
@@ -141,9 +144,10 @@ const ExportReportsDialog = ({
   const resetDialog = () => {
     setStep(1);
     setScope(null);
-    setSelectedMonth(new Date().getMonth());
+    setSelectedMonths([new Date().getMonth()]);
     setSelectedYear(new Date().getFullYear());
-    setSelectedPurposeId("");
+    setSelectedYears([new Date().getFullYear()]);
+    setSelectedPurposeIds([]);
     setFormat(null);
     setPdfOptions({
       includePieChart: true,
@@ -157,6 +161,9 @@ const ExportReportsDialog = ({
       setPreviewUrl(null);
     }
   };
+
+  const toggleInArray = <T,>(arr: T[], value: T): T[] =>
+    arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
