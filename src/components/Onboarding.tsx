@@ -1,20 +1,24 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CURRENCIES, COUNTRIES, LANGUAGES, UserSettings } from "@/types/expense";
-import { Check, Sun, Moon, Smartphone, ChevronRight, ChevronLeft, Search, Shield, AlertCircle } from "lucide-react";
+import { Check, Sun, Moon, Smartphone, ChevronRight, ChevronLeft, Search, Shield, AlertCircle, FolderDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { parseConfigurationImport, AppConfiguration } from "@/lib/configExport";
+import { toast } from "sonner";
 
 interface OnboardingProps {
   onComplete: (settings: Partial<UserSettings>) => void;
   onAcknowledgeData?: () => void;
+  onMigrateFromConfig?: (config: AppConfiguration) => void;
 }
 
 type Step = "welcome" | "name" | "country" | "currency" | "theme" | "acknowledge";
 
-const Onboarding = ({ onComplete, onAcknowledgeData }: OnboardingProps) => {
+const Onboarding = ({ onComplete, onAcknowledgeData, onMigrateFromConfig }: OnboardingProps) => {
+  const migrateInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("welcome");
   const [userName, setUserName] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
@@ -114,6 +118,52 @@ const Onboarding = ({ onComplete, onAcknowledgeData }: OnboardingProps) => {
             Get Started
             <ChevronRight className="ml-2 w-5 h-5" />
           </Button>
+
+          {/* Migrate from another device */}
+          <div className="mt-6">
+            <p className="text-sm text-muted-foreground mb-3">
+              Already using MEET on another device?
+            </p>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full rounded-2xl h-12"
+              onClick={() => migrateInputRef.current?.click()}
+            >
+              <FolderDown className="mr-2 w-4 h-4" />
+              Migrate settings from another device
+            </Button>
+            <input
+              type="file"
+              ref={migrateInputRef}
+              accept=".json,application/json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  const content = ev.target?.result as string;
+                  const { config, errors } = parseConfigurationImport(content);
+                  if (!config) {
+                    toast.error("Invalid configuration file", {
+                      description: errors.join(", ") || "Could not read file.",
+                    });
+                    return;
+                  }
+                  if (onMigrateFromConfig) {
+                    onMigrateFromConfig(config);
+                    toast.success("Settings migrated", {
+                      description: "Your configuration has been applied.",
+                    });
+                  }
+                };
+                reader.onerror = () => toast.error("Failed to read file");
+                reader.readAsText(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
         </div>
       )}
 
