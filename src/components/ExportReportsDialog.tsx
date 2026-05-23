@@ -173,33 +173,36 @@ const ExportReportsDialog = ({
   };
 
   const getFilteredExpenses = (): Expense[] => {
-    let filtered = expenses;
-
     if (scope === "month") {
-      filtered = expenses.filter(exp => {
+      return expenses.filter((exp) => {
         const date = new Date(exp.date);
-        return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+        return (
+          date.getFullYear() === selectedYear &&
+          selectedMonths.includes(date.getMonth())
+        );
       });
     } else if (scope === "year") {
-      filtered = expenses.filter(exp => {
-        const date = new Date(exp.date);
-        return date.getFullYear() === selectedYear;
-      });
-    } else if (scope === "purpose" && selectedPurposeId) {
-      filtered = expenses.filter(exp => exp.purposeId === selectedPurposeId);
+      return expenses.filter((exp) =>
+        selectedYears.includes(new Date(exp.date).getFullYear())
+      );
+    } else if (scope === "purpose" && selectedPurposeIds.length > 0) {
+      return expenses.filter(
+        (exp) => exp.purposeId && selectedPurposeIds.includes(exp.purposeId)
+      );
     }
-
-    return filtered;
+    return expenses;
   };
 
   const getDateRange = (): { startDate?: Date; endDate?: Date } => {
-    if (scope === "month") {
-      const startDate = new Date(selectedYear, selectedMonth, 1);
-      const endDate = new Date(selectedYear, selectedMonth + 1, 0);
+    if (scope === "month" && selectedMonths.length > 0) {
+      const sorted = [...selectedMonths].sort((a, b) => a - b);
+      const startDate = new Date(selectedYear, sorted[0], 1);
+      const endDate = new Date(selectedYear, sorted[sorted.length - 1] + 1, 0);
       return { startDate, endDate };
-    } else if (scope === "year") {
-      const startDate = new Date(selectedYear, 0, 1);
-      const endDate = new Date(selectedYear, 11, 31);
+    } else if (scope === "year" && selectedYears.length > 0) {
+      const sorted = [...selectedYears].sort((a, b) => a - b);
+      const startDate = new Date(sorted[0], 0, 1);
+      const endDate = new Date(sorted[sorted.length - 1], 11, 31);
       return { startDate, endDate };
     }
     return {};
@@ -208,9 +211,13 @@ const ExportReportsDialog = ({
   const getPDFExportOptions = () => {
     const filteredExpenses = getFilteredExpenses();
     const { startDate, endDate } = getDateRange();
-    const purposeName = scope === "purpose" 
-      ? purposes.find(p => p.id === selectedPurposeId)?.label 
-      : undefined;
+    const purposeName =
+      scope === "purpose"
+        ? purposes
+            .filter((p) => selectedPurposeIds.includes(p.id))
+            .map((p) => p.label)
+            .join(", ")
+        : undefined;
 
     return {
       expenses: filteredExpenses,
@@ -224,7 +231,7 @@ const ExportReportsDialog = ({
       customCategories,
       purposeName,
       scope,
-      selectedMonth,
+      selectedMonth: selectedMonths[0] ?? 0,
       selectedYear,
       pdfOptions,
     };
